@@ -30,6 +30,22 @@ export default function TitleBar() {
     /* 注意：Windows 上双击拖拽区域默认会最大化/还原，无需手动处理 */
     <div className="titlebar">
       <span className="titlebar-app">SuperMarkdown</span>
+      {isElectron && (
+        <button
+          className="titlebar-btn"
+          title="菜单"
+          onClick={() => api.popAppMenu()}
+        >
+          ☰
+        </button>
+      )}
+      <button
+        className="titlebar-btn donate"
+        title="爱发电支持我们"
+        onClick={() => api.openExternal('https://afdian.com/a/csqk495')}
+      >
+        ♥ 爱发电
+      </button>
       {title}
       {isElectron && (
         <div className="win-btns">

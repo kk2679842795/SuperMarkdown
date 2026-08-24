@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { buildAppMenu, showContextMenu } from './menu'
@@ -242,6 +242,13 @@ function registerIpc() {
   ipcMain.on('context-menu:show', (e) => {
     const win = BrowserWindow.fromWebContents(e.sender)
     if (win) showContextMenu(win)
+  })
+
+  // 标题栏 ☰ 按钮：弹出应用菜单（frameless 窗口下原生菜单栏默认隐藏）
+  ipcMain.on('app-menu:popup', (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const menu = Menu.getApplicationMenu()
+    if (win && menu) menu.popup({ window: win })
   })
 
   // 渲染进程就绪后取走启动时待打开的文件

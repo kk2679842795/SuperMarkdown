@@ -23,6 +23,7 @@ const api = {
     }
   },
   showContextMenu: () => ipcRenderer.send('context-menu:show'),
+  popAppMenu: () => ipcRenderer.send('app-menu:popup'),
   onOpenFile: (cb: (path: string, content: string) => void) => {
     const l = (_e: unknown, p: string, content: string) => cb(p, content)
     ipcRenderer.on('open-file', l)

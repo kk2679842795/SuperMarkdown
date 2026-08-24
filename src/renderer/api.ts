@@ -24,6 +24,7 @@ export interface AppApi {
   onMaximizedChange(cb: (v: boolean) => void): () => void
   onMenuAction(cb: (action: string) => void): () => void
   showContextMenu(): void
+  popAppMenu(): void
   onOpenFile(cb: (path: string, content: string) => void): () => void
   takePendingOpenFile(): Promise<{ path: string; content: string } | null>
 
@@ -72,6 +73,7 @@ function browserFallback(): AppApi {
     onMaximizedChange: () => () => {},
     onMenuAction: () => () => {},
     showContextMenu() {},
+    popAppMenu() {},
     onOpenFile: () => () => {},
     takePendingOpenFile: async () => null,
     readFile: async () => {
