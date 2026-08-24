@@ -96,5 +96,5 @@ src/
 
 SuperMarkdown 完全免费开源。如果你喜欢这个项目，欢迎通过以下方式支持：
 
-* **[爱发电](https://afdian.com)**：为开发者买杯咖啡 ☕
+* **[爱发电](https://afdian.com/a/csqk495)**：为开发者买杯咖啡 ☕
 * ⭐ Star 项目、提交 Issue / PR 也是最好的支持
