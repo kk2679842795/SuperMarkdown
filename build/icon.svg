@@ -1,10 +1,4 @@
-// 生成商业级应用图标（SVG 设计 → Chromium canvas 渲染 → PNG 多尺寸）
-// 用法: npx electron scripts/gen-icon.mjs
-import { app, BrowserWindow } from 'electron'
-import fs from 'node:fs'
-import path from 'node:path'
-
-const SVG = `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#5B5FF0"/>
@@ -55,66 +49,4 @@ const SVG = `<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http
 
   <!-- 细描边（画在裁剪层外，贴合边缘） -->
   <rect x="72" y="72" width="880" height="880" rx="216" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="5"/>
-</svg>`
-
-const svgB64 = Buffer.from(SVG).toString('base64')
-const html =
-  '<!doctype html><html><head><meta charset="utf-8"/></head><body style="margin:0"><script>' +
-  `const svg = '${svgB64}';
-function render(size) {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      const c = document.createElement('canvas')
-      c.width = size; c.height = size
-      const ctx = c.getContext('2d')
-      ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(img, 0, 0, size, size)
-      resolve(c.toDataURL('image/png'))
-    }
-    img.onerror = () => resolve(null)
-    img.src = 'data:image/svg+xml;base64,' + svg
-  })
-}
-(async () => {
-  const icons = {}
-  for (const s of [1024, 512, 256, 32]) icons[s] = await render(s)
-  window.__icons = icons
-})()` +
-  '</script></body></html>'
-
-app.whenReady().then(async () => {
-  const win = new BrowserWindow({
-    show: false,
-    width: 200,
-    height: 200,
-    webPreferences: { javascript: true, sandbox: true },
-  })
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-  // 轮询等待渲染完成
-  let icons = null
-  for (let i = 0; i < 40; i++) {
-    icons = await win.webContents.executeJavaScript('window.__icons || null')
-    if (icons) break
-    await new Promise((r) => setTimeout(r, 250))
-  }
-  if (!icons) {
-    console.error('图标渲染超时')
-    app.exit(1)
-    return
-  }
-  const root = process.cwd()
-  const buildDir = path.join(root, 'build')
-  fs.mkdirSync(buildDir, { recursive: true })
-  fs.writeFileSync(path.join(buildDir, 'icon.svg'), SVG)
-  const sizes = { 1024: 'icon.png', 512: 'icon-512.png', 256: 'icon-256.png', 32: 'icon-32.png' }
-  for (const [size, name] of Object.entries(sizes)) {
-    const dataUrl = icons[size]
-    if (!dataUrl) continue
-    const buf = Buffer.from(dataUrl.split(',')[1], 'base64')
-    fs.writeFileSync(path.join(buildDir, name), buf)
-    console.log(`生成 build/${name} (${size}x${size}, ${(buf.length / 1024).toFixed(0)}KB)`)
-  }
-  win.destroy()
-  app.quit()
-})
+</svg>

@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "esbuild scripts/test-core.ts --bundle --platform=node --format=cjs --outfile=out/test-core.cjs && node out/test-core.cjs",
     "build": "npm run typecheck && npm run build:main && vite build",
-    "icon": "node scripts/gen-icon.mjs",
+    "icon": "electron scripts/gen-icon.mjs",
     "inline-katex": "node scripts/inline-katex.mjs",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
