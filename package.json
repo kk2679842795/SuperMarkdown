@@ -20,8 +20,7 @@
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux",
-    "dist:msix": "npm run dist:win && node scripts/build-msix.mjs"
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "devDependencies": {
     "@types/katex": "^0.16.7",
@@ -34,7 +33,6 @@
     "cross-env": "^7.0.3",
     "electron": "^37.2.0",
     "electron-builder": "^26.0.12",
-    "electron-windows-store": "^2.1.0",
     "esbuild": "^0.25.0",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
