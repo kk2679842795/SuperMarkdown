@@ -18,6 +18,16 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icon.png
+# 文件关联：.md/.markdown 可在"打开方式"中选择本程序并设为默认
+fileAssociations:
+  - ext: md
+    name: Markdown 文档
+    description: Markdown 文档
+    role: Editor
+  - ext: markdown
+    name: Markdown 文档
+    description: Markdown 文档
+    role: Editor
 nsis:
   oneClick: false
   perMachine: false
@@ -25,6 +35,8 @@ nsis:
   deleteAppDataOnUninstall: false
   artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
+  # 自定义 NSIS 脚本：向系统右键菜单添加"用 SuperMarkdown 打开"
+  include: build/installer.nsh
 mac:
   target:
     - target: dmg

@@ -22,6 +22,16 @@ const api = {
       ipcRenderer.removeListener('menu:action', l)
     }
   },
+  showContextMenu: () => ipcRenderer.send('context-menu:show'),
+  onOpenFile: (cb: (path: string, content: string) => void) => {
+    const l = (_e: unknown, p: string, content: string) => cb(p, content)
+    ipcRenderer.on('open-file', l)
+    return () => {
+      ipcRenderer.removeListener('open-file', l)
+    }
+  },
+  takePendingOpenFile: (): Promise<{ path: string; content: string } | null> =>
+    ipcRenderer.invoke('open-file:take'),
 
   readFile: (p: string) => ipcRenderer.invoke('file:read', p),
   writeFile: (p: string, content: string) => ipcRenderer.invoke('file:write', p, content),

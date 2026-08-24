@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import type { EditorView } from 'prosemirror-view'
+import { undo as undoHist, redo as redoHist } from 'prosemirror-history'
 import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
 import Toolbar from './components/Toolbar'
@@ -12,6 +14,29 @@ import { useStore } from './store'
 import { api } from './api'
 import { exportAsHtml, exportAsPdf } from './editor/export'
 import { closeSearch, performSearch } from './editor/search'
+
+// 打开搜索（自动带入选中文字）
+function openSearch() {
+  const get = useStore.getState
+  const view = get().activeView()
+  let query = ''
+  if (view) {
+    const sel = view.state.selection
+    if (!sel.empty) {
+      query = view.state.doc.textBetween(sel.from, sel.to, ' ', ' ').trim().slice(0, 100)
+    }
+  }
+  get().setSearch({ open: true, query })
+  if (view && query) performSearch(view, query, get().search.caseSensitive)
+}
+
+// 撤销/重做走 ProseMirror 自身历史（prosemirror-history）
+function runHistory(action: 'undo' | 'redo') {
+  const view: EditorView | null = useStore.getState().activeView()
+  if (!view) return
+  ;(action === 'undo' ? undoHist : redoHist)(view.state, view.dispatch)
+  view.focus()
+}
 
 export default function App() {
   const theme = useStore((s) => s.theme)
@@ -30,8 +55,7 @@ export default function App() {
     if (useStore.getState().tabs.length === 0) useStore.getState().newFile()
     void useStore.getState().loadRecents()
     if (!api.isElectron) return
-    const off = api.onMenuAction((action) => {
-      const get = useStore.getState
+    const off = api.onMenuAction((action) => {      const get = useStore.getState
       switch (action) {
         case 'new':
           get().newFile()
@@ -54,6 +78,25 @@ export default function App() {
         case 'export-pdf':
           void exportAsPdf()
           break
+        case 'undo':
+          runHistory('undo')
+          break
+        case 'redo':
+          runHistory('redo')
+          break
+        case 'insert-link': {
+          const view = get().activeView()
+          if (view) get().openModal({ kind: 'link', pos: view.state.selection.from, initial: '' })
+          break
+        }
+        case 'insert-image': {
+          const view = get().activeView()
+          if (view) get().openModal({ kind: 'image', pos: view.state.selection.from, initial: '' })
+          break
+        }
+        case 'open-search':
+          openSearch()
+          break
         case 'toggle-sidebar':
           get().setSidebarOpen(!get().sidebarOpen)
           break
@@ -68,32 +111,31 @@ export default function App() {
           break
         case 'donate':
           // 创建爱发电主页后替换为真实地址
-          api.openExternal('https://afdian.com')
+          api.openExternal('https://afdian.com/a/csqk495')
           break
         case 'about':
           get().notify('SuperMarkdown v0.2.1 — 免费开源 · MIT License')
           break
       }
     })
-    return off
+    // 右键菜单/双击 .md 文件打开
+    const offOpen = api.onOpenFile((p, content) => useStore.getState().openPath(p, content))
+    void api.takePendingOpenFile().then((r) => {
+      if (r) useStore.getState().openPath(r.path, r.content)
+    })
+    return () => {
+      off()
+      offOpen()
+    }
   }, [])
 
-  // Ctrl+F 打开搜索（自动带入选中文字）/ Esc 关闭
+  // Ctrl+F 打开搜索 / Esc 关闭
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const get = useStore.getState
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault()
-        const view = get().activeView()
-        let query = ''
-        if (view) {
-          const sel = view.state.selection
-          if (!sel.empty) {
-            query = view.state.doc.textBetween(sel.from, sel.to, ' ', ' ').trim().slice(0, 100)
-          }
-        }
-        get().setSearch({ open: true, query })
-        if (view && query) performSearch(view, query, get().search.caseSensitive)
+        openSearch()
         return
       }
       if (e.key === 'Escape' && get().search.open) {
@@ -103,6 +145,17 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // 右键菜单（Electron 原生弹窗）
+  useEffect(() => {
+    if (!api.isElectron) return
+    const onCtxMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      api.showContextMenu()
+    }
+    window.addEventListener('contextmenu', onCtxMenu)
+    return () => window.removeEventListener('contextmenu', onCtxMenu)
   }, [])
 
   // 拖拽打开 .md 文件（编辑器内的图片拖放由 EditorPane 处理，这里处理编辑区外的文件拖放）

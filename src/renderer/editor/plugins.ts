@@ -1,7 +1,7 @@
 import { Plugin, PluginKey, TextSelection, type EditorState } from 'prosemirror-state'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap, toggleMark } from 'prosemirror-commands'
-import { history } from 'prosemirror-history'
+import { history, undo, redo } from 'prosemirror-history'
 import {
   inputRules,
   InputRule,
@@ -121,6 +121,9 @@ export function createPlugins(openLinkModal: () => void) {
   return [
     history(),
     keymap({
+      'Mod-z': undo,
+      'Shift-Mod-z': redo,
+      'Mod-y': redo,
       'Mod-b': toggleMark(schema.marks.strong),
       'Mod-i': toggleMark(schema.marks.em),
       'Mod-`': toggleMark(schema.marks.code),

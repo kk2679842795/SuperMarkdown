@@ -48,8 +48,13 @@ export function buildAppMenu() {
     {
       label: '编辑',
       submenu: [
-        { role: 'undo', label: '撤销' },
-        { role: 'redo', label: '重做' },
+        // 撤销/重做走 ProseMirror 自身历史，不能用 role: 'undo'/'redo'（原生撤销对 ProseMirror 无效）
+        { label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => send('undo') },
+        {
+          label: '重做',
+          accelerator: isMac ? 'Shift+CmdOrCtrl+Z' : 'CmdOrCtrl+Y',
+          click: () => send('redo'),
+        },
         { type: 'separator' },
         { role: 'cut', label: '剪切' },
         { role: 'copy', label: '复制' },
@@ -84,4 +89,28 @@ export function buildAppMenu() {
   ]
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+// 编辑区右键菜单：撤销/重做走渲染进程历史，剪贴板用原生 role
+export function showContextMenu(win: BrowserWindow) {
+  const isMac = process.platform === 'darwin'
+  const menu = Menu.buildFromTemplate([
+    { label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => send('undo') },
+    {
+      label: '重做',
+      accelerator: isMac ? 'Shift+CmdOrCtrl+Z' : 'CmdOrCtrl+Y',
+      click: () => send('redo'),
+    },
+    { type: 'separator' },
+    { role: 'cut', label: '剪切' },
+    { role: 'copy', label: '复制' },
+    { role: 'paste', label: '粘贴' },
+    { role: 'selectAll', label: '全选' },
+    { type: 'separator' },
+    { label: '插入链接…', accelerator: 'CmdOrCtrl+K', click: () => send('insert-link') },
+    { label: '插入图片…', click: () => send('insert-image') },
+    { type: 'separator' },
+    { label: '查找与替换…', accelerator: 'CmdOrCtrl+F', click: () => send('open-search') },
+  ])
+  menu.popup({ window: win })
 }

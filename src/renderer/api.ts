@@ -23,6 +23,9 @@ export interface AppApi {
   isMaximized(): Promise<boolean>
   onMaximizedChange(cb: (v: boolean) => void): () => void
   onMenuAction(cb: (action: string) => void): () => void
+  showContextMenu(): void
+  onOpenFile(cb: (path: string, content: string) => void): () => void
+  takePendingOpenFile(): Promise<{ path: string; content: string } | null>
 
   readFile(p: string): Promise<string>
   writeFile(p: string, content: string): Promise<boolean>
@@ -68,6 +71,9 @@ function browserFallback(): AppApi {
     isMaximized: async () => false,
     onMaximizedChange: () => () => {},
     onMenuAction: () => () => {},
+    showContextMenu() {},
+    onOpenFile: () => () => {},
+    takePendingOpenFile: async () => null,
     readFile: async () => {
       throw new Error('浏览器模式不支持按路径读取文件')
     },

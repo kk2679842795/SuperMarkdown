@@ -1,11 +1,35 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
-import { buildAppMenu } from './menu'
+import { buildAppMenu, showContextMenu } from './menu'
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL
 let mainWindow: BrowserWindow | null = null
 let pdfWindow: BrowserWindow | null = null
+
+const OPENABLE_EXT = /\.(md|markdown|txt)$/i
+
+function extractOpenFilePath(argv: string[]): string | null {
+  for (const arg of argv.slice(1)) {
+    if (!arg.startsWith('-') && OPENABLE_EXT.test(arg)) return path.resolve(arg)
+  }
+  return null
+}
+
+// 通过命令行/右键菜单打开的待处理文件（窗口未就绪时先暂存）
+// 注意：必须放在 OPENABLE_EXT 声明之后（const 无提升）
+let pendingOpenFile: string | null = extractOpenFilePath(process.argv)
+
+async function openExternalFile(filePath: string) {
+  const win = mainWindow ?? BrowserWindow.getAllWindows()[0]
+  if (!win) return
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8')
+    win.webContents.send('open-file', filePath, content)
+  } catch (err) {
+    dialog.showErrorBox('打开失败', `无法读取文件：\n${filePath}\n\n${String(err)}`)
+  }
+}
 
 function recentFilePath() {
   return path.join(app.getPath('userData'), 'recent.json')
@@ -214,17 +238,38 @@ function registerIpc() {
 
   ipcMain.on('shell:showItem', (_e, p: string) => shell.showItemInFolder(p))
   ipcMain.on('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+
+  ipcMain.on('context-menu:show', (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win) showContextMenu(win)
+  })
+
+  // 渲染进程就绪后取走启动时待打开的文件
+  ipcMain.handle('open-file:take', async () => {
+    const p = pendingOpenFile
+    if (!p) return null
+    pendingOpenFile = null
+    try {
+      return { path: p, content: await fs.promises.readFile(p, 'utf-8') }
+    } catch (err) {
+      dialog.showErrorBox('打开失败', `无法读取文件：\n${p}\n\n${String(err)}`)
+      return null
+    }
+  })
 }
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_e, argv) => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
     }
+    // 已有实例运行时，把新启动携带的文件路径转发给现有窗口
+    const f = extractOpenFilePath(argv)
+    if (f) void openExternalFile(f)
   })
 
   app.whenReady().then(() => {

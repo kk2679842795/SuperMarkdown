@@ -1,7 +1,9 @@
 node_modules/
 dist/
 out/
-release/
+# 安装包随仓库分发（仅追踪 setup.exe，忽略解包目录等）
+release/*
+!release/*.exe
 *.log
 .DS_Store
 Thumbs.db
