@@ -75,7 +75,9 @@ export function buildAppMenu() {
     {
       label: '帮助',
       submenu: [
-        { label: '项目主页 (GitHub)', click: () => send('open-home') },
+        { label: '项目主页 (GitCode)', click: () => send('open-home') },
+        { label: '支持我们（爱发电）', click: () => send('donate') },
+        { type: 'separator' },
         { label: '关于 SuperMarkdown', click: () => send('about') },
       ],
     },

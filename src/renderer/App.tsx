@@ -66,8 +66,12 @@ export default function App() {
         case 'open-home':
           api.openExternal('https://gitcode.com/GreenHands495/SuperMarkdown')
           break
+        case 'donate':
+          // 创建爱发电主页后替换为真实地址
+          api.openExternal('https://afdian.com')
+          break
         case 'about':
-          get().notify('SuperMarkdown v0.2.0 — 免费开源 · MIT License')
+          get().notify('SuperMarkdown v0.2.1 — 免费开源 · MIT License')
           break
       }
     })

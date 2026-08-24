@@ -18,6 +18,8 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icon.png
+# MSIX 打包：electron-builder 26 已移除 msix target，
+# 改用 scripts/build-msix.mjs（electron-windows-store），需 Windows SDK
 nsis:
   oneClick: false
   perMachine: false
