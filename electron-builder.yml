@@ -1,0 +1,40 @@
+appId: com.supermarkdown.app
+productName: SuperMarkdown
+copyright: Copyright © 2026 SuperMarkdown Contributors
+directories:
+  buildResources: build
+  output: release
+files:
+  - out/**/*
+  - dist/**/*
+  - package.json
+asar: true
+compression: normal
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-${version}-setup.${ext}
+  shortcutName: ${productName}
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: build/icon.png
+  category: public.app-category.productivity
+  darkModeSupport: true
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: build/icon.png
+  category: Office
+  maintainer: supermarkdown@example.com
+publish: null
