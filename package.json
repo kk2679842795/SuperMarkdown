@@ -1,7 +1,7 @@
 {
   "name": "supermarkdown",
   "productName": "SuperMarkdown",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "免费开源的跨平台 Markdown 编辑器 —— 所见即所得，追求超越 Typora 的体验",
   "author": "SuperMarkdown Contributors",
   "license": "MIT",
