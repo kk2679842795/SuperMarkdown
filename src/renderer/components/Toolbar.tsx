@@ -1,5 +1,6 @@
 import type { EditorView } from 'prosemirror-view'
 import { wrapIn, lift } from 'prosemirror-commands'
+import { undo as undoHist, redo as redoHist } from 'prosemirror-history'
 import { useStore } from '../store'
 import { api } from '../api'
 import {
@@ -31,6 +32,32 @@ export default function Toolbar() {
 
   return (
     <div className="toolbar">
+      <div className="tb-group">
+        <button
+          className="tb-btn"
+          title="撤销 (Ctrl+Z)"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => run((v) => undoHist(v.state, v.dispatch))}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16">
+            <path d="M6 4 L2.5 7.5 L6 11" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2.5 7.5 H10.5 a3.5 3.5 0 0 1 0 7 H8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
+        <button
+          className="tb-btn"
+          title="重做 (Ctrl+Y)"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => run((v) => redoHist(v.state, v.dispatch))}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16">
+            <path d="M10 4 L13.5 7.5 L10 11" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M13.5 7.5 H5.5 a3.5 3.5 0 0 0 0 7 H8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
+        <span className="tb-sep" />
+      </div>
+
       <div className="tb-group">
         <button className="tb-btn" title="新建文档 (Ctrl+N)" onClick={() => get().newFile()}>
           <svg width="15" height="15" viewBox="0 0 16 16">

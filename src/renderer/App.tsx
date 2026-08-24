@@ -11,7 +11,7 @@ import Editor from './editor/editor'
 import { useStore } from './store'
 import { api } from './api'
 import { exportAsHtml, exportAsPdf } from './editor/export'
-import { closeSearch } from './editor/search'
+import { closeSearch, performSearch } from './editor/search'
 
 export default function App() {
   const theme = useStore((s) => s.theme)
@@ -78,13 +78,22 @@ export default function App() {
     return off
   }, [])
 
-  // Ctrl+F 打开搜索 / Esc 关闭
+  // Ctrl+F 打开搜索（自动带入选中文字）/ Esc 关闭
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const get = useStore.getState
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault()
-        get().setSearch({ open: true })
+        const view = get().activeView()
+        let query = ''
+        if (view) {
+          const sel = view.state.selection
+          if (!sel.empty) {
+            query = view.state.doc.textBetween(sel.from, sel.to, ' ', ' ').trim().slice(0, 100)
+          }
+        }
+        get().setSearch({ open: true, query })
+        if (view && query) performSearch(view, query, get().search.caseSensitive)
         return
       }
       if (e.key === 'Escape' && get().search.open) {
