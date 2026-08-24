@@ -8,3 +8,5 @@ release/*
 .DS_Store
 Thumbs.db
 .inscode/
+# 原始截图源文件夹（README 使用 assets/ 下的副本）
+UI预览图/
