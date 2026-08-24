@@ -31,14 +31,34 @@ export interface OutlineItem {
 
 export type SaveState = 'saved' | 'dirty' | 'saving'
 
+export interface Tab {
+  id: string
+  path: string | null
+  name: string
+  dirty: boolean
+  saveState: SaveState
+  /** 打开/新建时的初始内容（EditorPane 挂载时用于创建文档） */
+  initial: string
+}
+
+export interface SearchState {
+  open: boolean
+  query: string
+  replace: string
+  caseSensitive: boolean
+  /** 当前高亮的匹配序号（0-based） */
+  current: number
+  /** 当前文档匹配总数 */
+  count: number
+}
+
 interface AppState {
   theme: 'light' | 'dark'
   sidebarOpen: boolean
   outlineOpen: boolean
-  currentPath: string | null
-  fileName: string
-  dirty: boolean
-  saveState: SaveState
+  tabs: Tab[]
+  activeTabId: string | null
+  views: Record<string, EditorView>
   treeRoot: string | null
   tree: FileNode[] | null
   recents: string[]
@@ -48,14 +68,20 @@ interface AppState {
   cursor: { line: number; col: number }
   modal: ModalState | null
   toast: string | null
-  view: EditorView | null
+  search: SearchState
 
-  setView: (v: EditorView | null) => void
-  updateDocMeta: (view: EditorView, opts?: { markDirty?: boolean }) => void
+  activeTab: () => Tab | null
+  activeView: () => EditorView | null
+  setView: (tabId: string, v: EditorView) => void
+  removeView: (tabId: string) => void
+  updateDocMeta: (tabId: string, view: EditorView, opts?: { markDirty?: boolean }) => void
   openPath: (path: string, content: string) => void
   newFile: () => void
+  switchTab: (id: string) => void
+  closeTab: (id: string) => void
   saveCurrent: (silent?: boolean) => Promise<void>
   saveCurrentAs: () => Promise<void>
+  saveTab: (tabId: string, silent?: boolean) => Promise<void>
   loadRecents: () => Promise<void>
   openFolder: () => Promise<void>
   loadDir: (dir: string) => Promise<FileNode[]>
@@ -70,10 +96,15 @@ interface AppState {
   closeModal: () => void
   openLinkModal: () => void
   notify: (msg: string) => void
+  setSearch: (partial: Partial<SearchState>) => void
 }
 
+let tabSeq = 0
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+const genTabId = () => 'tab-' + ++tabSeq
+const baseName = (p: string) => p.split(/[\\/]/).pop() || '未命名.md'
 
 function initTheme(): 'light' | 'dark' {
   const saved = localStorage.getItem('sm-theme')
@@ -85,10 +116,9 @@ export const useStore = create<AppState>((set, get) => ({
   theme: initTheme(),
   sidebarOpen: true,
   outlineOpen: true,
-  currentPath: null,
-  fileName: '未命名.md',
-  dirty: false,
-  saveState: 'saved',
+  tabs: [],
+  activeTabId: null,
+  views: {},
   treeRoot: null,
   tree: null,
   recents: [],
@@ -98,11 +128,27 @@ export const useStore = create<AppState>((set, get) => ({
   cursor: { line: 1, col: 1 },
   modal: null,
   toast: null,
-  view: null,
+  search: { open: false, query: '', replace: '', caseSensitive: false, current: 0, count: 0 },
 
-  setView: (v) => set({ view: v }),
+  activeTab: () => {
+    const s = get()
+    return s.tabs.find((t) => t.id === s.activeTabId) ?? null
+  },
 
-  updateDocMeta: (view, opts) => {
+  activeView: () => {
+    const s = get()
+    return (s.activeTabId && s.views[s.activeTabId]) || null
+  },
+
+  setView: (tabId, v) => set({ views: { ...get().views, [tabId]: v } }),
+
+  removeView: (tabId) => {
+    const views = { ...get().views }
+    delete views[tabId]
+    set({ views })
+  },
+
+  updateDocMeta: (tabId, view, opts) => {
     const doc = view.state.doc
     let words = 0
     doc.descendants((n) => {
@@ -116,73 +162,137 @@ export const useStore = create<AppState>((set, get) => ({
     const before = doc.textBetween(0, head, '\n', ' ')
     const line = before.split('\n').length
     const col = before.length - before.lastIndexOf('\n')
-    set({
+    set((s) => ({
       words,
       outline,
       lines: doc.textContent.split('\n').length,
       cursor: { line, col },
-      ...(opts?.markDirty === false ? {} : { dirty: true, saveState: 'dirty' as SaveState }),
-    })
-    if (opts?.markDirty !== false && get().currentPath) {
-      if (saveTimer) clearTimeout(saveTimer)
-      saveTimer = setTimeout(() => {
-        void get().saveCurrent(true)
-      }, 1200)
+      tabs:
+        opts?.markDirty === false
+          ? s.tabs
+          : s.tabs.map((t) => (t.id === tabId ? { ...t, dirty: true, saveState: 'dirty' as SaveState } : t)),
+    }))
+    if (opts?.markDirty !== false) {
+      const tab = get().tabs.find((t) => t.id === tabId)
+      if (tab?.path) {
+        if (saveTimer) clearTimeout(saveTimer)
+        saveTimer = setTimeout(() => {
+          void get().saveTab(tabId, true)
+        }, 1200)
+      }
     }
   },
 
   openPath: (path, content) => {
-    const view = get().view
-    if (!view) return
-    const doc = parseMarkdown(content)
-    view.updateState(EditorState.create({ doc, plugins: createPlugins(() => get().openLinkModal()) }))
-    const name = path.split(/[\\/]/).pop() || '未命名.md'
-    set({ currentPath: path, fileName: name, dirty: false, saveState: 'saved' })
-    get().updateDocMeta(view, { markDirty: false })
-    void api.addRecent(path).then(() => get().loadRecents())
+    const { tabs } = get()
+    const exist = tabs.find((t) => t.path === path)
+    if (exist) {
+      set({ activeTabId: exist.id })
+      document.title = exist.name + ' - SuperMarkdown'
+      return
+    }
+    const id = genTabId()
+    const name = baseName(path)
+    set({ tabs: [...tabs, { id, path, name, dirty: false, saveState: 'saved', initial: content }], activeTabId: id })
     document.title = name + ' - SuperMarkdown'
+    void api.addRecent(path).then(() => get().loadRecents())
   },
 
   newFile: () => {
-    const view = get().view
-    if (!view) return
-    // 新建空白文档（首次启动才展示欢迎文档）
-    const doc = parseMarkdown('')
-    view.updateState(EditorState.create({ doc, plugins: createPlugins(() => get().openLinkModal()) }))
-    set({ currentPath: null, fileName: '未命名.md', dirty: false, saveState: 'saved' })
-    get().updateDocMeta(view, { markDirty: false })
+    const { tabs } = get()
+    const id = genTabId()
+    // 首次启动（无任何标签）展示欢迎文档，之后新建空白文档
+    const initial = tabs.length === 0 ? WELCOME : ''
+    const tab: Tab = { id, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial }
+    set({ tabs: [...tabs, tab], activeTabId: id })
     document.title = '未命名.md - SuperMarkdown'
   },
 
-  saveCurrent: async (silent) => {
-    const { view, currentPath } = get()
-    if (!view) return
-    if (!currentPath) {
+  switchTab: (id) => {
+    if (get().activeTabId === id) return
+    set({ activeTabId: id })
+    const tab = get().tabs.find((t) => t.id === id)
+    const view = get().views[id]
+    if (tab) document.title = tab.name + ' - SuperMarkdown'
+    if (view) get().updateDocMeta(id, view, { markDirty: false })
+  },
+
+  closeTab: (id) => {
+    const { tabs, activeTabId } = get()
+    const idx = tabs.findIndex((t) => t.id === id)
+    if (idx < 0) return
+    const tab = tabs[idx]
+    // 有路径且未保存则先保存
+    if (tab.dirty && tab.path) void get().saveTab(id, false)
+    let next = tabs.filter((t) => t.id !== id)
+    if (next.length === 0) {
+      // 全部关闭时自动新建一个空白标签
+      const nid = genTabId()
+      next = [{ id: nid, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial: '' }]
+      set({ tabs: next, activeTabId: nid })
+      document.title = '未命名.md - SuperMarkdown'
+      return
+    }
+    let newActive: string
+    if (activeTabId === id) {
+      newActive = next[Math.min(idx, next.length - 1)].id
+    } else {
+      newActive = activeTabId ?? next[0].id
+    }
+    set({ tabs: next, activeTabId: newActive })
+    const nt = next.find((t) => t.id === newActive)
+    if (nt) document.title = nt.name + ' - SuperMarkdown'
+    const nv = get().views[newActive]
+    if (nv) get().updateDocMeta(newActive, nv, { markDirty: false })
+  },
+
+  saveTab: async (tabId, silent) => {
+    const view = get().views[tabId]
+    const tab = get().tabs.find((t) => t.id === tabId)
+    if (!view || !tab) return
+    if (!tab.path) {
       if (silent) return
       return get().saveCurrentAs()
     }
     const md = mdSerializer.serialize(view.state.doc)
-    set({ saveState: 'saving' })
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, saveState: 'saving' as SaveState } : t)),
+    }))
     try {
-      await api.writeFile(currentPath, md)
-      set({ dirty: false, saveState: 'saved' })
+      await api.writeFile(tab.path, md)
+      set((s) => ({
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, dirty: false, saveState: 'saved' as SaveState } : t)),
+      }))
     } catch (e) {
       console.error('保存失败:', e)
-      set({ saveState: 'dirty' })
+      set((s) => ({
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, saveState: 'dirty' as SaveState } : t)),
+      }))
       get().notify('保存失败：' + String(e))
     }
   },
 
+  saveCurrent: async (silent) => {
+    const tab = get().activeTab()
+    if (!tab) return
+    await get().saveTab(tab.id, silent)
+  },
+
   saveCurrentAs: async () => {
-    const { view, fileName } = get()
-    if (!view) return
+    const tab = get().activeTab()
+    const view = get().activeView()
+    if (!tab || !view) return
     const md = mdSerializer.serialize(view.state.doc)
-    const res = await api.saveFileDialog(md, fileName)
+    const res = await api.saveFileDialog(md, tab.name)
     if (res?.path) {
-      const name = res.path.split(/[\\/]/).pop() || '未命名.md'
-      set({ currentPath: res.path, fileName: name, dirty: false, saveState: 'saved' })
-      void api.addRecent(res.path).then(() => get().loadRecents())
+      const name = baseName(res.path)
+      set((s) => ({
+        tabs: s.tabs.map((t) =>
+          t.id === tab.id ? { ...t, path: res.path, name, dirty: false, saveState: 'saved' as SaveState } : t,
+        ),
+      }))
       document.title = name + ' - SuperMarkdown'
+      void api.addRecent(res.path).then(() => get().loadRecents())
     }
   },
 
@@ -250,7 +360,7 @@ export const useStore = create<AppState>((set, get) => ({
   closeModal: () => set({ modal: null }),
 
   openLinkModal: () => {
-    const view = get().view
+    const view = get().activeView()
     if (!view) return
     get().openModal({ kind: 'link', pos: view.state.selection.from, initial: '' })
   },
@@ -260,6 +370,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (toastTimer) clearTimeout(toastTimer)
     toastTimer = setTimeout(() => set({ toast: null }), 2600)
   },
+
+  setSearch: (partial) => set({ search: { ...get().search, ...partial } }),
 }))
 
 document.documentElement.dataset.theme = useStore.getState().theme

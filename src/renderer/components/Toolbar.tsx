@@ -21,7 +21,7 @@ import {
 import { exportAsHtml, exportAsPdf } from '../editor/export'
 
 export default function Toolbar() {
-  const view = useStore((s) => s.view)
+  const view = useStore((s) => (s.activeTabId ? s.views[s.activeTabId] ?? null : null))
   const openModal = useStore((s) => s.openModal)
 
   const run = (fn: (v: EditorView) => void) => {

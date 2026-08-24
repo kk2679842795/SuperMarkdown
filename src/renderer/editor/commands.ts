@@ -4,6 +4,7 @@ import { NodeSelection, TextSelection } from 'prosemirror-state'
 import { setBlockType, toggleMark } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
 import { schema } from './schema'
+import { api } from '../api'
 import { useStore } from '../store'
 
 export const toggleStrong = toggleMark(schema.marks.strong)
@@ -146,4 +147,53 @@ export function handleEditorClick(view: EditorView, event: MouseEvent): boolean 
     }
   }
   return false
+}
+
+// ---------- 图片粘贴 / 拖拽 ----------
+
+function getImageFile(files: FileList | null): File | null {
+  if (!files || !files.length) return null
+  return Array.from(files).find((f) => f.type.startsWith('image/')) ?? null
+}
+
+async function persistImage(file: File): Promise<string> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('读取图片失败'))
+    reader.readAsDataURL(file)
+  })
+  const tab = useStore.getState().activeTab()
+  if (!tab?.path) return dataUrl
+  const dir = tab.path.split(/[\\/]/).slice(0, -1).join('/') || '.'
+  const res = await api.imageSave(dataUrl, dir)
+  return res?.rel ?? dataUrl
+}
+
+async function insertImageAt(view: EditorView, file: File, pos: number) {
+  try {
+    const src = await persistImage(file)
+    const node = schema.nodes.image.create({ src, alt: file.name || '', title: null })
+    view.dispatch(view.state.tr.replaceSelectionWith(node, pos === view.state.selection.from))
+    view.focus()
+  } catch (e) {
+    useStore.getState().notify('图片插入失败：' + String(e))
+  }
+}
+
+export function handleEditorPaste(view: EditorView, event: ClipboardEvent): boolean {
+  const file = getImageFile(event.clipboardData?.files ?? null)
+  if (!file) return false
+  event.preventDefault()
+  void insertImageAt(view, file, view.state.selection.from)
+  return true
+}
+
+export function handleEditorDrop(view: EditorView, event: DragEvent): boolean {
+  const file = getImageFile(event.dataTransfer?.files ?? null)
+  if (!file) return false
+  const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
+  event.preventDefault()
+  void insertImageAt(view, file, coords?.pos ?? view.state.selection.from)
+  return true
 }

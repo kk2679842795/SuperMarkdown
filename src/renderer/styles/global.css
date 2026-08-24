@@ -69,6 +69,222 @@ body {
   height: 100vh;
 }
 
+/* ============ 标签栏 ============ */
+.tabbar {
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 4px 8px 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 12px;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--fg2);
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  max-width: 200px;
+  min-width: 90px;
+  user-select: none;
+}
+
+.tab:hover {
+  background: var(--bg3);
+  color: var(--fg);
+}
+
+.tab.active {
+  background: var(--bg);
+  color: var(--fg);
+  border-color: var(--border);
+  font-weight: 500;
+}
+
+.tab-dot {
+  font-size: 9px;
+  color: var(--fg3);
+  flex: none;
+}
+
+.tab.dirty .tab-dot {
+  color: var(--accent);
+}
+
+.tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  border: none;
+  background: transparent;
+  color: var(--fg3);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.tab-close:hover {
+  background: var(--bg3);
+  color: var(--fg);
+}
+
+.tab-new {
+  border: none;
+  background: transparent;
+  color: var(--fg2);
+  font-size: 17px;
+  cursor: pointer;
+  padding: 0 10px;
+  height: 26px;
+  border-radius: 6px;
+  flex: none;
+  margin-bottom: 4px;
+}
+
+.tab-new:hover {
+  background: var(--bg3);
+  color: var(--fg);
+}
+
+/* ============ 编辑器面板（多标签） ============ */
+.pm-pane {
+  display: none;
+  height: 100%;
+}
+
+.pm-pane.active {
+  display: block;
+}
+
+.pm-pane-inner {
+  height: 100%;
+}
+
+/* ============ 搜索栏 ============ */
+.searchbar {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+}
+
+.searchbar-icon {
+  color: var(--fg3);
+  font-size: 12px;
+}
+
+.searchbar-input {
+  width: 150px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.searchbar-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-weak);
+}
+
+.searchbar-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg2);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.searchbar-btn:hover {
+  background: var(--bg3);
+  color: var(--fg);
+}
+
+.searchbar-btn.close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.searchbar-case {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--fg2);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.searchbar-case.on {
+  background: var(--accent-weak);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.searchbar-count {
+  color: var(--fg3);
+  font-size: 12px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.searchbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* 搜索高亮 */
+.search-match {
+  background: rgba(255, 190, 0, 0.35);
+  border-radius: 2px;
+}
+
+.search-match.current {
+  background: rgba(255, 150, 0, 0.55);
+  outline: 1px solid rgba(200, 110, 0, 0.6);
+}
+
 /* ============ 标题栏 ============ */
 .titlebar {
   height: 38px;

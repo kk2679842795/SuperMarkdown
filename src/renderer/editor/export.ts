@@ -14,7 +14,7 @@ function escapeHtml(s: string) {
 }
 
 export async function buildExportHtml(): Promise<string> {
-  const view = useStore.getState().view
+  const view = useStore.getState().activeView()
   if (!view) throw new Error('编辑器未就绪')
   const doc = view.state.doc
   const host = document.createElement('div')
@@ -73,7 +73,7 @@ export async function buildExportHtml(): Promise<string> {
   }
 
   const state = useStore.getState()
-  const title = state.fileName || 'SuperMarkdown'
+  const title = state.activeTab()?.name || 'SuperMarkdown'
   const isDark = state.theme === 'dark'
   return `<!doctype html>
 <html lang="zh-CN">
@@ -100,7 +100,7 @@ export async function exportAsHtml() {
   try {
     const html = await buildExportHtml()
     const state = useStore.getState()
-    const name = (state.fileName || 'export').replace(/\.md$/i, '') + '.html'
+    const name = ((state.activeTab()?.name) || 'export').replace(/\.md$/i, '') + '.html'
     const res = await api.exportHtml(html, name)
     if (res.ok) useStore.getState().notify('已导出 HTML' + (res.path ? '：' + res.path : ''))
     else useStore.getState().notify('导出 HTML 失败：' + (res.error || '未知错误'))
@@ -113,7 +113,7 @@ export async function exportAsPdf() {
   try {
     const html = await buildExportHtml()
     const state = useStore.getState()
-    const name = (state.fileName || 'export').replace(/\.md$/i, '') + '.pdf'
+    const name = ((state.activeTab()?.name) || 'export').replace(/\.md$/i, '') + '.pdf'
     const res = await api.exportPdf(html, name)
     if (res.ok) useStore.getState().notify('已导出 PDF' + (res.path ? '：' + res.path : ''))
     else useStore.getState().notify('导出 PDF 失败：' + (res.error || '未知错误'))

@@ -38,7 +38,7 @@ export default function SourceModal() {
   if (!modal) return null
 
   const commit = () => {
-    const view = useStore.getState().view
+    const view = useStore.getState().activeView()
     if (!view) {
       closeModal()
       return

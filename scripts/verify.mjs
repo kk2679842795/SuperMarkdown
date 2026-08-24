@@ -1,4 +1,4 @@
-// 验证脚本：检查编辑器关键区域是否渲染完整
+// 验证脚本：检查编辑器关键区域是否渲染完整（多标签版）
 import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +11,7 @@ app.whenReady().then(async () => {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'diag-preload.cjs'),
+      preload: path.join(__dirname, 'verify-preload.cjs'),
       contextIsolation: false,
       nodeIntegration: false,
       sandbox: false,
@@ -27,13 +27,15 @@ app.whenReady().then(async () => {
   const checks = await win.webContents.executeJavaScript(`(() => {
     const q = (s) => document.querySelector(s)
     const has = (s) => !!q(s)
-    const pm = q('.ProseMirror')
+    const pm = q('.pm-pane.active .ProseMirror')
     return {
       titlebar: has('.titlebar'),
+      tabbar: has('.tabbar'),
+      tabCount: document.querySelectorAll('.tab').length,
       toolbar: has('.toolbar'),
       sidebar: has('.sidebar'),
       statusbar: has('.statusbar'),
-      editor: has('.ProseMirror'),
+      editor: !!pm,
       editorText: pm ? pm.textContent.slice(0, 60) : '',
       headings: pm ? pm.querySelectorAll('h1,h2').length : 0,
       mathViews: pm ? pm.querySelectorAll('.math-inline-view,.math-block-view').length : 0,

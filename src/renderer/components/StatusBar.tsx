@@ -10,9 +10,8 @@ export default function StatusBar() {
   const words = useStore((s) => s.words)
   const lines = useStore((s) => s.lines)
   const cursor = useStore((s) => s.cursor)
-  const saveState = useStore((s) => s.saveState)
-  const fileName = useStore((s) => s.fileName)
-  const dirty = useStore((s) => s.dirty)
+  const tab = useStore((s) => s.tabs.find((t) => t.id === s.activeTabId))
+  const dirty = tab?.dirty ?? false
 
   return (
     <footer className="statusbar">
@@ -21,9 +20,11 @@ export default function StatusBar() {
         <span>{lines} 行</span>
       </div>
       <div className="sb-right">
-        <span>行 {cursor.line}, 列 {cursor.col}</span>
-        <span className={`save-state ${dirty ? 'dirty' : ''}`}>{SAVE_TEXT[saveState]}</span>
-        <span className="sb-file">{fileName}</span>
+        <span>
+          行 {cursor.line}, 列 {cursor.col}
+        </span>
+        <span className={`save-state ${dirty ? 'dirty' : ''}`}>{SAVE_TEXT[tab?.saveState ?? 'saved']}</span>
+        <span className="sb-file">{tab?.name ?? ''}</span>
       </div>
     </footer>
   )

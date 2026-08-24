@@ -76,5 +76,8 @@ export const mdParser = new MarkdownParser(schema, markdownIt, {
 })
 
 export function parseMarkdown(text: string): Node {
-  return mdParser.parse(text)
+  const parsed = mdParser.parse(text)
+  // 空文档补一个空段落，便于占位提示与后续输入
+  if (parsed.content.size === 0) return schema.nodes.doc.createAndFill() ?? parsed
+  return parsed
 }

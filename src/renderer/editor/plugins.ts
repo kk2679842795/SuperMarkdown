@@ -12,6 +12,7 @@ import { gapCursor } from 'prosemirror-gapcursor'
 import { dropCursor } from 'prosemirror-dropcursor'
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view'
 import { schema } from './schema'
+import { searchPlugin } from './search'
 
 function placeholder(text: string) {
   const key = new PluginKey('placeholder')
@@ -20,9 +21,14 @@ function placeholder(text: string) {
     props: {
       decorations(state: EditorState) {
         const doc = state.doc
-        if (doc.content.size > 0) return DecorationSet.empty
+        // 仅当文档是单个空段落时显示占位
+        const empty =
+          doc.childCount === 1 &&
+          doc.firstChild?.isTextblock === true &&
+          doc.firstChild.content.size === 0
+        if (!empty) return DecorationSet.empty
         const deco = Decoration.widget(
-          0,
+          1,
           () => {
             const el = document.createElement('span')
             el.className = 'pm-placeholder'
@@ -131,6 +137,7 @@ export function createPlugins(openLinkModal: () => void) {
     gapCursor(),
     dropCursor(),
     tableNav(),
+    searchPlugin,
     placeholder('开始输入… 支持 Markdown 语法，Ctrl+S 保存'),
   ]
 }

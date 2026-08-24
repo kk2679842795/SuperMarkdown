@@ -97,6 +97,28 @@ function registerIpc() {
       )
   })
 
+  // 保存粘贴/拖入的图片到文档同目录的 assets/ 文件夹
+  ipcMain.handle('image:save', async (_e, dataUrl: string, dir: string) => {
+    const m = /^data:(image\/[a-zA-Z+.-]+);base64,(.*)$/s.exec(dataUrl)
+    if (!m) return null
+    const extMap: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/svg+xml': 'svg',
+      'image/bmp': 'bmp',
+      'image/avif': 'avif',
+    }
+    const ext = extMap[m[1]] || 'png'
+    const assetsDir = path.join(dir, 'assets')
+    await fs.promises.mkdir(assetsDir, { recursive: true })
+    const name = `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`
+    const full = path.join(assetsDir, name)
+    await fs.promises.writeFile(full, Buffer.from(m[2], 'base64'))
+    return { path: full, rel: path.join('assets', name) }
+  })
+
   ipcMain.handle('dialog:openFile', async () => {
     const r = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openFile'],

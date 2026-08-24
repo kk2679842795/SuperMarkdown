@@ -4,7 +4,7 @@ import { useStore, type FileNode } from '../store'
 
 function TreeItem({ node, depth }: { node: FileNode; depth: number }) {
   const tree = useStore((s) => s.tree)
-  const currentPath = useStore((s) => s.currentPath)
+  const currentPath = useStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.path ?? null)
   const setTree = useStore((s) => s.setTree)
 
   const openFile = async (path: string) => {

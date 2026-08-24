@@ -5,7 +5,7 @@ export default function Outline() {
   const outline = useStore((s) => s.outline)
 
   const jump = (pos: number) => {
-    const view = useStore.getState().view
+    const view = useStore.getState().activeView()
     if (!view) return
     const { state } = view
     const resolved = state.doc.resolve(pos + 1)

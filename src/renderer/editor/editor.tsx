@@ -5,44 +5,68 @@ import { parseMarkdown } from './parser'
 import { createPlugins } from './plugins'
 import { buildNodeViews } from './nodeviews'
 import { useStore } from '../store'
-import { WELCOME } from '../welcome'
-import { handleEditorClick } from './commands'
+import { handleEditorClick, handleEditorPaste, handleEditorDrop } from './commands'
 
-export default function Editor() {
+function EditorPane({ tabId }: { tabId: string }) {
   const hostRef = useRef<HTMLDivElement>(null)
+  const inited = useRef(false)
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host) return
+    if (!host || inited.current) return
+    inited.current = true
+    const tab = useStore.getState().tabs.find((t) => t.id === tabId)
+    if (!tab) return
     const openLinkModal = () => {
-      const view = useStore.getState().view
+      const view = useStore.getState().activeView()
       if (!view) return
       useStore.getState().openModal({ kind: 'link', pos: view.state.selection.from, initial: '' })
     }
     const view = new EditorView(host, {
       state: EditorState.create({
-        doc: parseMarkdown(WELCOME),
+        doc: parseMarkdown(tab.initial),
         plugins: createPlugins(openLinkModal),
       }),
       nodeViews: buildNodeViews(),
       dispatchTransaction(tr) {
         const newState = view.state.apply(tr)
         view.updateState(newState)
-        useStore.getState().updateDocMeta(view)
+        useStore.getState().updateDocMeta(tabId, view)
       },
       handleDOMEvents: {
         click(v, event) {
           return handleEditorClick(v, event)
         },
+        paste(v, event) {
+          return handleEditorPaste(v, event as ClipboardEvent)
+        },
+        drop(v, event) {
+          return handleEditorDrop(v, event as DragEvent)
+        },
       },
     })
-    useStore.getState().setView(view)
-    useStore.getState().updateDocMeta(view, { markDirty: false })
+    useStore.getState().setView(tabId, view)
+    useStore.getState().updateDocMeta(tabId, view, { markDirty: false })
     return () => {
       view.destroy()
-      useStore.getState().setView(null)
+      useStore.getState().removeView(tabId)
     }
-  }, [])
+  }, [tabId])
 
-  return <div className="pm-host" ref={hostRef} />
+  return <div className="pm-pane-inner" ref={hostRef} />
+}
+
+export default function Editor() {
+  const tabs = useStore((s) => s.tabs)
+  const activeTabId = useStore((s) => s.activeTabId)
+
+  return (
+    <div className="pm-host">
+      {tabs.map((t) => (
+        <div key={t.id} className={`pm-pane ${t.id === activeTabId ? 'active' : ''}`}>
+          <EditorPane tabId={t.id} />
+        </div>
+      ))}
+    </div>
+  )
 }

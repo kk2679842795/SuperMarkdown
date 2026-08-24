@@ -3,8 +3,7 @@ import { api } from '../api'
 import { useStore } from '../store'
 
 export default function TitleBar() {
-  const fileName = useStore((s) => s.fileName)
-  const dirty = useStore((s) => s.dirty)
+  const tab = useStore((s) => s.tabs.find((t) => t.id === s.activeTabId))
   const [maxed, setMaxed] = useState(false)
   const isMac = api.platform === 'darwin'
   const isElectron = api.isElectron
@@ -18,8 +17,8 @@ export default function TitleBar() {
 
   const title = (
     <span className="titlebar-title">
-      {fileName}
-      {dirty ? <span className="titlebar-dirty"> •</span> : null}
+      {tab?.name ?? 'SuperMarkdown'}
+      {tab?.dirty ? <span className="titlebar-dirty"> •</span> : null}
     </span>
   )
 
