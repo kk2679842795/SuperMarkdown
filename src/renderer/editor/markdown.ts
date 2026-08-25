@@ -91,6 +91,7 @@ function taskListPlugin(md: MarkdownIt) {
 }
 
 // 解析用 markdown-it 实例（默认预设已开启 table / strikethrough）
-export const markdownIt = new MarkdownIt({ html: false, linkify: true })
+// html: true 允许源文档使用原生 HTML（表格 / 链接图片等），由 prosemirror-markdown 借助 schema.parseDOM 还原
+export const markdownIt = new MarkdownIt({ html: true, linkify: true, breaks: false })
   .use(mathPlugin)
   .use(taskListPlugin)

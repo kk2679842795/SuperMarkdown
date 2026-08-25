@@ -1,5 +1,5 @@
 import { MarkdownParser } from 'prosemirror-markdown'
-import type { Node } from 'prosemirror-model'
+import { DOMParser, type Node } from 'prosemirror-model'
 import { schema } from './schema'
 import { markdownIt } from './markdown'
 
@@ -74,6 +74,43 @@ export const mdParser = new MarkdownParser(schema, markdownIt, {
     },
   },
 })
+
+// raw HTML 支持：markdown-it html:true 会产生 html_block / html_inline
+// 通过 schema 的 DOMParser 将其整体还原为 ProseMirror 节点，解决 <table> 中 <a><img></a> 等嵌套无法渲染的问题
+function parseHtmlFragment(html: string, state: any) {
+  // Node 环境（单元测试）下 document 不可用，降级为文本
+  if (typeof document === 'undefined') {
+    state.addText(html)
+    return
+  }
+  const wrap = document.createElement('div')
+  wrap.innerHTML = html
+  try {
+    const slice = DOMParser.fromSchema(schema).parseSlice(wrap)
+    let pushed = 0
+    slice.content.forEach((node: Node) => {
+      // 跳过空文本节点，避免产生多余空段落
+      if (node.isText && !node.textContent?.trim()) return
+      state.push(node)
+      pushed++
+    })
+    // 若 DOMParser 未产出任何有效节点（例如纯空白或不被 schema 支持的标签），回退为文本避免内容丢失
+    if (pushed === 0 && html.trim()) state.addText(html.trim())
+  } catch {
+    // 降级：作为纯文本插入，避免解析失败导致整段丢失
+    state.addText(html)
+  }
+}
+// html_block 包含完整块级 HTML（如整个 <table>...</table>）
+;(mdParser as unknown as { tokenHandlers: Record<string, unknown> }).tokenHandlers['html_block'] = (
+  state: unknown,
+  tok: { content: string },
+) => parseHtmlFragment(tok.content, state)
+// html_inline 为行内 HTML 片段（如单个标签），尽力解析，失败则忽略
+;(mdParser as unknown as { tokenHandlers: Record<string, unknown> }).tokenHandlers['html_inline'] = (
+  state: unknown,
+  tok: { content: string },
+) => parseHtmlFragment(tok.content, state)
 
 export function parseMarkdown(text: string): Node {
   const parsed = mdParser.parse(text)

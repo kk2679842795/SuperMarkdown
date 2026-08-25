@@ -117,6 +117,104 @@ const hrRule = new InputRule(/^(?:---|___\s|\*\*\*\s)$/, (state, match, start, e
   return state.tr.replaceWith(start, end, schema.nodes.horizontal_rule.create())
 })
 
+// 专注模式：除光标所在顶层块外，其余块半透明
+function focusPlugin() {
+  const key = new PluginKey('focus-mode')
+  return new Plugin({
+    key,
+    props: {
+      decorations(state: EditorState) {
+        // 动态从 store 读取，保证切换后立即生效（下一次 transaction 即刷新）
+        let enabled = false
+        try {
+          // 避免循环依赖，延迟读取
+          const mod = (globalThis as unknown as { __smStore?: { getState: () => { focusMode: boolean } } }).__smStore
+          if (mod) enabled = mod.getState().focusMode
+          else {
+            // 回退：直接读 localStorage
+            enabled = localStorage.getItem('sm-focus') === '1'
+          }
+        } catch {
+          enabled = false
+        }
+        if (!enabled) return DecorationSet.empty
+        const { selection } = state
+        const activePos = selection.from
+        // 找到光标所在顶层块在 doc 中的 [from, to]
+        let activeFrom = -1
+        let activeTo = -1
+        let offset = 0
+        for (let i = 0; i < state.doc.childCount; i++) {
+          const child = state.doc.child(i)
+          const from = offset
+          const to = offset + child.nodeSize
+          // selection.from 在 [from, to) 之间即为该块（ProseMirror positions：doc 起始为 0，第一个块从 0 开始）
+          if (activePos >= from && activePos < to) {
+            activeFrom = from
+            activeTo = to
+            break
+          }
+          offset = to
+        }
+        if (activeFrom < 0) return DecorationSet.empty
+        const decos: Decoration[] = []
+        offset = 0
+        for (let i = 0; i < state.doc.childCount; i++) {
+          const child = state.doc.child(i)
+          const from = offset
+          const to = offset + child.nodeSize
+          if (from !== activeFrom) {
+            decos.push(Decoration.node(from, to, { class: 'focus-dim' }))
+          }
+          offset = to
+        }
+        return DecorationSet.create(state.doc, decos)
+      },
+    },
+  })
+}
+
+// 打字机模式：光标始终保持在视口垂直居中
+function typewriterPlugin() {
+  const key = new PluginKey('typewriter')
+  let raf = 0
+  return new Plugin({
+    key,
+    view() {
+      return {
+        update(view: EditorView, prevState: EditorState) {
+          let enabled = false
+          try {
+            const mod = (globalThis as unknown as { __smStore?: { getState: () => { typewriterMode: boolean } } }).__smStore
+            if (mod) enabled = mod.getState().typewriterMode
+            else enabled = localStorage.getItem('sm-typewriter') === '1'
+          } catch {
+            enabled = false
+          }
+          if (!enabled) return
+          // 仅当选区变化时触发
+          if (prevState.selection.eq(view.state.selection)) return
+          if (raf) cancelAnimationFrame(raf)
+          raf = requestAnimationFrame(() => {
+            const sel = view.state.selection
+            // 将选区头部对应的 DOM 位置滚动至容器垂直居中
+            const coords = view.coordsAtPos(sel.head)
+            const host = view.dom.closest('.pm-host') as HTMLElement | null
+            const container = host ?? (view.dom.parentElement as HTMLElement | null)
+            if (!container) return
+            const rect = container.getBoundingClientRect()
+            const targetTop = coords.top - rect.top + container.scrollTop - rect.height / 2 + 24
+            container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+          })
+        },
+        destroy() {
+          if (raf) cancelAnimationFrame(raf)
+        },
+      }
+    },
+  })
+}
+
 export function createPlugins(openLinkModal: () => void) {
   return [
     history(),
@@ -141,6 +239,8 @@ export function createPlugins(openLinkModal: () => void) {
     dropCursor(),
     tableNav(),
     searchPlugin,
+    focusPlugin(),
+    typewriterPlugin(),
     placeholder('开始输入… 支持 Markdown 语法，Ctrl+S 保存'),
   ]
 }

@@ -24,6 +24,9 @@ import { exportAsHtml, exportAsPdf } from '../editor/export'
 export default function Toolbar() {
   const view = useStore((s) => (s.activeTabId ? s.views[s.activeTabId] ?? null : null))
   const openModal = useStore((s) => s.openModal)
+  const zenMode = useStore((s) => s.zenMode)
+  const focusMode = useStore((s) => s.focusMode)
+  const typewriterMode = useStore((s) => s.typewriterMode)
 
   const run = (fn: (v: EditorView) => void) => {
     if (view) fn(view)
@@ -256,6 +259,41 @@ export default function Toolbar() {
       </div>
 
       <div className="tb-spacer" />
+
+      <div className="tb-group">
+        <button
+          className={`tb-btn ${zenMode ? 'active' : ''}`}
+          title="极简模式 (F9 / Esc 退出)"
+          onClick={() => {
+            get().toggleZenMode()
+            Object.values(get().views).forEach((v) => v.dispatch(v.state.tr.setMeta('ui', Date.now())))
+          }}
+        >
+          ◫
+        </button>
+        <button
+          className={`tb-btn ${focusMode ? 'active' : ''}`}
+          title="专注模式（高亮当前段落）"
+          onClick={() => {
+            get().toggleFocusMode()
+            Object.values(get().views).forEach((v) => v.dispatch(v.state.tr.setMeta('ui', Date.now())))
+          }}
+        >
+          ◎
+        </button>
+        <button
+          className={`tb-btn ${typewriterMode ? 'active' : ''}`}
+          title="打字机模式（光标居中）"
+          onClick={() => {
+            get().toggleTypewriterMode()
+            Object.values(get().views).forEach((v) => v.dispatch(v.state.tr.setMeta('ui', Date.now())))
+          }}
+        >
+          ⌖
+        </button>
+      </div>
+
+      <span className="tb-sep" />
 
       <div className="tb-group">
         <button

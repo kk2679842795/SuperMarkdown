@@ -1,5 +1,6 @@
 import type { EditorView } from 'prosemirror-view'
 import type { Node } from 'prosemirror-model'
+import { Fragment } from 'prosemirror-model'
 import { NodeSelection, TextSelection } from 'prosemirror-state'
 import { setBlockType, toggleMark } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
@@ -58,7 +59,17 @@ export function insertMermaid(view: EditorView) {
 
 export function insertImage(view: EditorView, src: string, alt: string, title: string) {
   const node = schema.nodes.image.create({ src, alt: alt || null, title: title || null })
-  view.dispatch(view.state.tr.replaceSelectionWith(node))
+  const info = findValidImagePos(view, view.state.selection.from)
+  if (info.wrapInParagraph) {
+    const para = schema.nodes.paragraph.create(null, node)
+    let tr = view.state.tr.replaceWith(info.pos, info.pos, para)
+    tr = tr.setSelection(TextSelection.create(tr.doc, info.pos + para.nodeSize - 1))
+    view.dispatch(tr)
+  } else {
+    let tr = view.state.tr.replaceWith(info.pos, info.pos, node)
+    tr = tr.setSelection(TextSelection.create(tr.doc, info.pos + node.nodeSize))
+    view.dispatch(tr)
+  }
   view.focus()
 }
 
@@ -173,19 +184,63 @@ async function persistImage(file: File): Promise<string> {
 async function insertImageAt(view: EditorView, file: File, pos: number) {
   try {
     const src = await persistImage(file)
+    const info = findValidImagePos(view, pos)
     const node = schema.nodes.image.create({ src, alt: file.name || '', title: null })
-    view.dispatch(view.state.tr.replaceSelectionWith(node, pos === view.state.selection.from))
+    let tr: typeof view.state.tr
+    if (info.wrapInParagraph) {
+      const para = schema.nodes.paragraph.create(null, node)
+      tr = view.state.tr.replaceWith(info.pos, info.pos, para)
+      tr = tr.setSelection(TextSelection.create(tr.doc, info.pos + para.nodeSize - 1))
+    } else {
+      tr = view.state.tr.replaceWith(info.pos, info.pos, node)
+      tr = tr.setSelection(TextSelection.create(tr.doc, info.pos + node.nodeSize))
+    }
+    view.dispatch(tr)
     view.focus()
   } catch (e) {
     useStore.getState().notify('图片插入失败：' + String(e))
   }
 }
 
+// 找到最近一个能容纳 inline image 的位置；若当前位置不允许 inline，则回退到最近文本块或提示需包裹段落
+function findValidImagePos(
+  view: EditorView,
+  pos: number,
+): { pos: number; wrapInParagraph: boolean } {
+  const doc = view.state.doc
+  if (doc.childCount === 0) return { pos: 0, wrapInParagraph: true }
+  const clamped = Math.max(0, Math.min(pos, doc.content.size))
+  try {
+    const $pos = doc.resolve(clamped)
+    // 直接在 inline 容器中
+    if ($pos.parent && $pos.parent.type.validContent(Fragment.from(schema.nodes.image.create({ src: '' })))) {
+      return { pos: clamped, wrapInParagraph: false }
+    }
+    // 向上查找最近的 textblock 祖先
+    for (let d = $pos.depth; d > 0; d--) {
+      const node = $pos.node(d)
+      if (node.isTextblock && node.type.validContent(Fragment.from(schema.nodes.image.create({ src: '' })))) {
+        const start = $pos.start(d)
+        const end = $pos.end(d)
+        // 若原 pos 在该块内，返回原 pos；否则返回块末尾前
+        if (clamped >= start && clamped <= end) return { pos: clamped, wrapInParagraph: false }
+        return { pos: end - 1, wrapInParagraph: false }
+      }
+    }
+  } catch {
+    /* fallthrough */
+  }
+  // 位于块间隙或表格/代码块等不允许 inline 的位置：插入新段落承载图片
+  return { pos: clamped, wrapInParagraph: true }
+}
+
 export function handleEditorPaste(view: EditorView, event: ClipboardEvent): boolean {
   const file = getImageFile(event.clipboardData?.files ?? null)
   if (!file) return false
   event.preventDefault()
-  void insertImageAt(view, file, view.state.selection.from)
+  // 立刻快照位置（异步保存图片期间用户可能继续输入导致 selection 漂移）
+  const pos = view.state.selection.from
+  void insertImageAt(view, file, pos)
   return true
 }
 
@@ -194,6 +249,7 @@ export function handleEditorDrop(view: EditorView, event: DragEvent): boolean {
   if (!file) return false
   const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
   event.preventDefault()
-  void insertImageAt(view, file, coords?.pos ?? view.state.selection.from)
+  const pos = coords?.pos ?? view.state.selection.from
+  void insertImageAt(view, file, pos)
   return true
 }

@@ -57,18 +57,38 @@ export const schema = new Schema({
       inline: true,
       group: 'inline',
       draggable: true,
-      attrs: { src: {}, alt: { default: null }, title: { default: null } },
+      // 去掉 atom：让 link 等 mark 能正常包裹图片（解决 <a><img></a> 无法渲染的问题）
+      // NodeView 仍把整张图视作一个整体，保证编辑体验一致
+      attrs: {
+        src: {},
+        alt: { default: null },
+        title: { default: null },
+        width: { default: null },
+        height: { default: null },
+      },
       parseDOM: [
         {
           tag: 'img',
-          getAttrs: (el) => ({
-            src: (el as HTMLElement).getAttribute('src'),
-            alt: (el as HTMLElement).getAttribute('alt'),
-            title: (el as HTMLElement).getAttribute('title'),
-          }),
+          getAttrs: (el) => {
+            const h = el as HTMLElement
+            return {
+              src: h.getAttribute('src'),
+              alt: h.getAttribute('alt'),
+              title: h.getAttribute('title'),
+              width: h.getAttribute('width'),
+              height: h.getAttribute('height'),
+            }
+          },
         },
       ],
-      toDOM: (node) => ['img', { src: node.attrs.src, alt: node.attrs.alt || null, title: node.attrs.title || null }],
+      toDOM: (node) => {
+        const a: Record<string, string | null> = { src: node.attrs.src }
+        if (node.attrs.alt) a.alt = node.attrs.alt
+        if (node.attrs.title) a.title = node.attrs.title
+        if (node.attrs.width) a.width = String(node.attrs.width)
+        if (node.attrs.height) a.height = String(node.attrs.height)
+        return ['img', a]
+      },
     },
     hard_break: {
       inline: true,
@@ -157,8 +177,22 @@ export const schema = new Schema({
       isolating: true,
       attrs: { header: { default: false }, align: { default: null } },
       parseDOM: [
-        { tag: 'th', getAttrs: (el) => ({ header: true, align: (el as HTMLElement).style.textAlign || null }) },
-        { tag: 'td', getAttrs: (el) => ({ header: false, align: (el as HTMLElement).style.textAlign || null }) },
+        {
+          tag: 'th',
+          getAttrs: (el) => {
+            const h = el as HTMLElement
+            const align = h.style.textAlign || h.getAttribute('align') || null
+            return { header: true, align: align || null }
+          },
+        },
+        {
+          tag: 'td',
+          getAttrs: (el) => {
+            const h = el as HTMLElement
+            const align = h.style.textAlign || h.getAttribute('align') || null
+            return { header: false, align: align || null }
+          },
+        },
       ],
       toDOM: (node) =>
         node.attrs.align

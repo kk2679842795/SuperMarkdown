@@ -460,6 +460,12 @@ body {
   color: var(--accent);
 }
 
+.tb-btn.active {
+  background: var(--accent-weak);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
 .tb-bold {
   font-weight: 700;
 }
@@ -807,8 +813,24 @@ body {
   overflow-x: auto;
 }
 
+.image-view {
+  display: inline-block;
+  position: relative;
+  line-height: 0;
+  user-select: none;
+}
+
 .image-view img {
   cursor: pointer;
+  display: block;
+  max-width: 100%;
+}
+
+/* 链接包裹图片时的样式：去掉默认下划线 */
+.ProseMirror a .image-view,
+.ProseMirror a.image-view {
+  border-bottom: none;
+  line-height: 0;
 }
 
 /* ============ 侧边栏 ============ */
@@ -1169,4 +1191,88 @@ body {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* ============ 极简模式 (Zen) ============ */
+.app.zen-mode {
+  background: var(--bg);
+}
+
+.app.zen-mode .main {
+  background: var(--bg);
+}
+
+.app.zen-mode .pm-host {
+  background: var(--bg);
+}
+
+.app.zen-mode .ProseMirror {
+  max-width: 760px;
+  padding: 72px 32px 220px;
+}
+
+/* 极简模式下隐藏 chrome 的过渡 */
+.app.zen-mode .titlebar,
+.app.zen-mode .tabbar,
+.app.zen-mode .toolbar,
+.app.zen-mode .sidebar,
+.app.zen-mode .outline,
+.app.zen-mode .statusbar {
+  display: none !important;
+}
+
+/* 退出按钮：固定在右上角，悬浮 */
+.zen-exit {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 90;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg2);
+  font-size: 12.5px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  opacity: 0.65;
+  transition: opacity 0.18s, background 0.18s, color 0.18s;
+}
+
+.zen-exit:hover {
+  opacity: 1;
+  background: var(--bg2);
+  color: var(--fg);
+}
+
+/* 无 chrome 时，内容区全屏沉浸 */
+.app.zen-mode .content {
+  background: var(--bg);
+}
+
+/* ============ 专注模式 ============ */
+.focus-dim {
+  opacity: 0.28;
+  transition: opacity 0.22s ease;
+  filter: grayscale(0.15);
+}
+
+.focus-mode .ProseMirror:not(:focus-within) .focus-dim {
+  opacity: 0.35;
+}
+
+/* 专注模式下当前段落高亮：装饰的节点之外的块保持正常 */
+.ProseMirror .focus-dim:hover {
+  opacity: 0.55;
+}
+
+/* ============ 打字机模式 ============ */
+.typewriter-mode .pm-host {
+  scroll-behavior: smooth;
+}
+
+.typewriter-mode .ProseMirror {
+  /* 上下留白让光标有居中空间 */
+  padding-top: 40vh;
+  padding-bottom: 50vh;
 }

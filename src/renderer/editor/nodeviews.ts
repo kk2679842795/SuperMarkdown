@@ -303,13 +303,16 @@ class ImageView implements NodeView {
     this.getPos = getPos
     this.dom = document.createElement('span')
     this.dom.className = 'image-view'
-    this.dom.contentEditable = 'false'
     this.img = document.createElement('img')
     this.dom.appendChild(this.img)
     this.dom.addEventListener('dblclick', (e) => {
       e.preventDefault()
       e.stopPropagation()
       this.openEditor()
+    })
+    // 防止双击时选区进入图片内部
+    this.dom.addEventListener('mousedown', (e) => {
+      e.preventDefault()
     })
     this.setImg()
   }
@@ -318,6 +321,21 @@ class ImageView implements NodeView {
     this.img.src = this.node.attrs.src || ''
     this.img.alt = this.node.attrs.alt || ''
     this.img.title = this.node.attrs.title || ''
+    this.img.loading = 'lazy'
+    if (this.node.attrs.width) this.img.setAttribute('width', String(this.node.attrs.width))
+    else this.img.removeAttribute('width')
+    if (this.node.attrs.height) this.img.setAttribute('height', String(this.node.attrs.height))
+    else this.img.removeAttribute('height')
+    // 若有显式尺寸，覆盖 max-width，保留用户指定大小（配合表格 180 场景）
+    if (this.node.attrs.width || this.node.attrs.height) {
+      this.img.style.maxWidth = 'none'
+      if (this.node.attrs.width) this.img.style.width = /^\d+$/.test(String(this.node.attrs.width)) ? this.node.attrs.width + 'px' : String(this.node.attrs.width)
+      if (this.node.attrs.height) this.img.style.height = /^\d+$/.test(String(this.node.attrs.height)) ? this.node.attrs.height + 'px' : String(this.node.attrs.height)
+    } else {
+      this.img.style.maxWidth = ''
+      this.img.style.width = ''
+      this.img.style.height = ''
+    }
   }
 
   private openEditor() {
@@ -331,13 +349,27 @@ class ImageView implements NodeView {
 
   update(node: Node) {
     if (node.type.name !== 'image') return false
-    if (node.attrs.src !== this.node.attrs.src) {
+    if (
+      node.attrs.src !== this.node.attrs.src ||
+      node.attrs.alt !== this.node.attrs.alt ||
+      node.attrs.title !== this.node.attrs.title ||
+      node.attrs.width !== this.node.attrs.width ||
+      node.attrs.height !== this.node.attrs.height
+    ) {
       this.node = node
       this.setImg()
     } else {
       this.node = node
     }
     return true
+  }
+
+  selectNode() {
+    this.dom.classList.add('ProseMirror-selectednode')
+  }
+
+  deselectNode() {
+    this.dom.classList.remove('ProseMirror-selectednode')
   }
 
   ignoreMutation() {

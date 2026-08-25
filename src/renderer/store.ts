@@ -31,6 +31,16 @@ export interface OutlineItem {
 
 export type SaveState = 'saved' | 'dirty' | 'saving'
 
+function initZenMode(): boolean {
+  return localStorage.getItem('sm-zen') === '1'
+}
+function initFocusMode(): boolean {
+  return localStorage.getItem('sm-focus') === '1'
+}
+function initTypewriter(): boolean {
+  return localStorage.getItem('sm-typewriter') === '1'
+}
+
 export interface Tab {
   id: string
   path: string | null
@@ -56,6 +66,9 @@ interface AppState {
   theme: 'light' | 'dark'
   sidebarOpen: boolean
   outlineOpen: boolean
+  zenMode: boolean
+  focusMode: boolean
+  typewriterMode: boolean
   tabs: Tab[]
   activeTabId: string | null
   views: Record<string, EditorView>
@@ -92,6 +105,12 @@ interface AppState {
   toggleTheme: () => void
   setSidebarOpen: (v: boolean) => void
   setOutlineOpen: (v: boolean) => void
+  setZenMode: (v: boolean) => void
+  toggleZenMode: () => void
+  setFocusMode: (v: boolean) => void
+  toggleFocusMode: () => void
+  setTypewriterMode: (v: boolean) => void
+  toggleTypewriterMode: () => void
   openModal: (m: ModalState) => void
   closeModal: () => void
   openLinkModal: () => void
@@ -116,6 +135,9 @@ export const useStore = create<AppState>((set, get) => ({
   theme: initTheme(),
   sidebarOpen: true,
   outlineOpen: true,
+  zenMode: initZenMode(),
+  focusMode: initFocusMode(),
+  typewriterMode: initTypewriter(),
   tabs: [],
   activeTabId: null,
   views: {},
@@ -356,6 +378,42 @@ export const useStore = create<AppState>((set, get) => ({
 
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
   setOutlineOpen: (v) => set({ outlineOpen: v }),
+  setZenMode: (v) => {
+    localStorage.setItem('sm-zen', v ? '1' : '0')
+    try { document.documentElement.dataset.zen = v ? '1' : '0' } catch {}
+    set({ zenMode: v })
+  },
+  toggleZenMode: () => {
+    const v = !get().zenMode
+    localStorage.setItem('sm-zen', v ? '1' : '0')
+    try { document.documentElement.dataset.zen = v ? '1' : '0' } catch {}
+    set({ zenMode: v })
+    get().notify(v ? '已进入极简模式 — 按 Esc 或 F9 退出' : '已退出极简模式')
+  },
+  setFocusMode: (v) => {
+    localStorage.setItem('sm-focus', v ? '1' : '0')
+    try { document.documentElement.dataset.focus = v ? '1' : '0' } catch {}
+    set({ focusMode: v })
+  },
+  toggleFocusMode: () => {
+    const v = !get().focusMode
+    localStorage.setItem('sm-focus', v ? '1' : '0')
+    try { document.documentElement.dataset.focus = v ? '1' : '0' } catch {}
+    set({ focusMode: v })
+    get().notify(v ? '已开启专注模式' : '已关闭专注模式')
+  },
+  setTypewriterMode: (v) => {
+    localStorage.setItem('sm-typewriter', v ? '1' : '0')
+    try { document.documentElement.dataset.typewriter = v ? '1' : '0' } catch {}
+    set({ typewriterMode: v })
+  },
+  toggleTypewriterMode: () => {
+    const v = !get().typewriterMode
+    localStorage.setItem('sm-typewriter', v ? '1' : '0')
+    try { document.documentElement.dataset.typewriter = v ? '1' : '0' } catch {}
+    set({ typewriterMode: v })
+    get().notify(v ? '已开启打字机模式' : '已关闭打字机模式')
+  },
   openModal: (m) => set({ modal: m }),
   closeModal: () => set({ modal: null }),
 
@@ -375,3 +433,13 @@ export const useStore = create<AppState>((set, get) => ({
 }))
 
 document.documentElement.dataset.theme = useStore.getState().theme
+// 供 editor 插件读取（专注/打字机）
+;(globalThis as unknown as { __smStore?: typeof useStore }).__smStore = useStore
+// 同步 zen/focus/typewriter 到 html dataset 便于 CSS（可选）
+try {
+  document.documentElement.dataset.zen = useStore.getState().zenMode ? '1' : '0'
+  document.documentElement.dataset.focus = useStore.getState().focusMode ? '1' : '0'
+  document.documentElement.dataset.typewriter = useStore.getState().typewriterMode ? '1' : '0'
+} catch {
+  /* ignore */
+}

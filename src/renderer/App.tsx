@@ -42,6 +42,9 @@ export default function App() {
   const theme = useStore((s) => s.theme)
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const outlineOpen = useStore((s) => s.outlineOpen)
+  const zenMode = useStore((s) => s.zenMode)
+  const focusMode = useStore((s) => s.focusMode)
+  const typewriterMode = useStore((s) => s.typewriterMode)
   const modal = useStore((s) => s.modal)
   const toast = useStore((s) => s.toast)
   const searchOpen = useStore((s) => s.search.open)
@@ -50,12 +53,52 @@ export default function App() {
     document.documentElement.dataset.theme = theme
   }, [theme])
 
+  // 暴露给编辑器插件（专注/打字机需要读取最新状态）
+  useEffect(() => {
+    ;(globalThis as unknown as { __smStore?: typeof useStore }).__smStore = useStore
+  }, [])
+
+  // 极简模式下：Esc 退出，F9 切换
+  useEffect(() => {
+    const onZenKey = (e: KeyboardEvent) => {
+      if (e.key === 'F9') {
+        e.preventDefault()
+        useStore.getState().toggleZenMode()
+        // 强制刷新编辑器装饰
+        Object.values(useStore.getState().views).forEach((v) => {
+          v.dispatch(v.state.tr.setMeta('zen', Date.now()))
+        })
+      } else if (e.key === 'Escape' && useStore.getState().zenMode) {
+        // 若有弹窗/搜索，优先关闭它们
+        const s = useStore.getState()
+        if (s.modal) {
+          s.closeModal()
+          return
+        }
+        if (s.search.open) {
+          const v = s.activeView()
+          if (v) closeSearch(v)
+          return
+        }
+        s.setZenMode(false)
+        Object.values(s.views).forEach((v) => {
+          v.dispatch(v.state.tr.setMeta('zen', Date.now()))
+        })
+      }
+    }
+    window.addEventListener('keydown', onZenKey)
+    return () => window.removeEventListener('keydown', onZenKey)
+  }, [])
+
   useEffect(() => {
     // 启动时若无标签则创建第一个
     if (useStore.getState().tabs.length === 0) useStore.getState().newFile()
     void useStore.getState().loadRecents()
     if (!api.isElectron) return
     const off = api.onMenuAction((action) => {      const get = useStore.getState
+      const refreshViews = () => {
+        Object.values(get().views).forEach((v) => v.dispatch(v.state.tr.setMeta('ui', Date.now())))
+      }
       switch (action) {
         case 'new':
           get().newFile()
@@ -105,6 +148,18 @@ export default function App() {
           break
         case 'toggle-theme':
           get().toggleTheme()
+          break
+        case 'toggle-zen':
+          get().toggleZenMode()
+          refreshViews()
+          break
+        case 'toggle-focus':
+          get().toggleFocusMode()
+          refreshViews()
+          break
+        case 'toggle-typewriter':
+          get().toggleTypewriterMode()
+          refreshViews()
           break
         case 'open-home':
           api.openExternal('https://gitcode.com/GreenHands495/SuperMarkdown')
@@ -184,20 +239,39 @@ export default function App() {
     }
   }, [])
 
+  // 同步 zen/focus/typewriter 需要刷新编辑器装饰
+  useEffect(() => {
+    Object.values(useStore.getState().views).forEach((v) => {
+      v.dispatch(v.state.tr.setMeta('ui', Date.now()))
+    })
+  }, [zenMode, focusMode, typewriterMode])
+
   return (
-    <div className="app">
-      <TitleBar />
-      <TabBar />
-      <Toolbar />
+    <div className={`app ${zenMode ? 'zen-mode' : ''} ${focusMode ? 'focus-mode' : ''} ${typewriterMode ? 'typewriter-mode' : ''}`}>
+      {!zenMode && <TitleBar />}
+      {!zenMode && <TabBar />}
+      {!zenMode && <Toolbar />}
       <div className="main">
-        {sidebarOpen && <Sidebar />}
+        {!zenMode && sidebarOpen && <Sidebar />}
         <div className="content">
           {searchOpen && <SearchBar />}
           <Editor />
-          {outlineOpen && <Outline />}
+          {!zenMode && outlineOpen && <Outline />}
         </div>
       </div>
-      <StatusBar />
+      {!zenMode && <StatusBar />}
+      {zenMode && (
+        <button
+          className="zen-exit"
+          title="退出极简模式 (Esc / F9)"
+          onClick={() => {
+            useStore.getState().setZenMode(false)
+            Object.values(useStore.getState().views).forEach((v) => v.dispatch(v.state.tr.setMeta('zen', Date.now())))
+          }}
+        >
+          退出极简
+        </button>
+      )}
       {modal && <SourceModal />}
       {toast && <div className="toast">{toast}</div>}
     </div>

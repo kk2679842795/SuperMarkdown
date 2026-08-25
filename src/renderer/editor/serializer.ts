@@ -59,11 +59,22 @@ export const mdSerializer = new MarkdownSerializer(
       state.closeBlock(node)
     },
     image(state, node) {
+      // 若带有 width/height（如 HTML 表格中 <img width="180" ...>），降级为 HTML 以保留尺寸
+      if (node.attrs.width || node.attrs.height) {
+        let html = '<img src="' + state.esc(node.attrs.src || '') + '"'
+        if (node.attrs.alt) html += ' alt="' + state.esc(node.attrs.alt) + '"'
+        if (node.attrs.title) html += ' title="' + state.esc(node.attrs.title) + '"'
+        if (node.attrs.width) html += ' width="' + state.esc(String(node.attrs.width)) + '"'
+        if (node.attrs.height) html += ' height="' + state.esc(String(node.attrs.height)) + '"'
+        html += '>'
+        state.write(html)
+        return
+      }
       state.write(
         '![' +
           state.esc(node.attrs.alt || '') +
           '](' +
-          node.attrs.src.replace(/[()]/g, '\\$&') +
+          (node.attrs.src || '').replace(/[()]/g, '\\$&') +
           (node.attrs.title ? ' "' + node.attrs.title.replace(/"/g, '\\"') + '"' : '') +
           ')',
       )
