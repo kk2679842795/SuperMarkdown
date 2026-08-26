@@ -30,6 +30,7 @@ export interface AppApi {
 
   readFile(p: string): Promise<string>
   writeFile(p: string, content: string): Promise<boolean>
+  copyFile(src: string, dest: string): Promise<'ok' | 'missing' | 'error'>
   imageSave(dataUrl: string, dir: string): Promise<{ path: string; rel: string } | null>
   openFileDialog(): Promise<OpenResult | null>
   saveFileDialog(content: string, defaultName: string): Promise<SaveResult | null>
@@ -80,6 +81,7 @@ function browserFallback(): AppApi {
       throw new Error('浏览器模式不支持按路径读取文件')
     },
     writeFile: async () => true,
+    copyFile: async () => 'error',
     imageSave: async (dataUrl) => ({ path: dataUrl, rel: dataUrl }),
     openFileDialog: async () => {
       return new Promise((resolve) => {

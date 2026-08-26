@@ -41,6 +41,53 @@ function initTypewriter(): boolean {
   return localStorage.getItem('sm-typewriter') === '1'
 }
 
+const EXTERNAL_SRC_RE = /^(data|https?|blob|file|smimg):/i
+
+function parentDirOf(p: string): string {
+  return p.split(/[\\/]/).slice(0, -1).join('/')
+}
+
+function sameDir(a: string, b: string): boolean {
+  const norm = (x: string) => x.replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()
+  return norm(a) === norm(b)
+}
+
+function isLocalRelativeSrc(s: string): boolean {
+  if (!s || EXTERNAL_SRC_RE.test(s)) return false
+  return !/^[A-Za-z]:[\\/]/.test(s) && !s.startsWith('/') && !s.startsWith('\\\\')
+}
+
+// 另存为时把旧目录中文档引用到的本地图片复制到新目录，保持相对路径引用有效
+async function migrateAssetsOnSaveAs(
+  oldDocPath: string,
+  newDocPath: string,
+  view: EditorView,
+): Promise<{ copied: number; missing: number; failed: number }> {
+  const oldDir = parentDirOf(oldDocPath)
+  const newDir = parentDirOf(newDocPath)
+  const result = { copied: 0, missing: 0, failed: 0 }
+  if (!oldDocPath || !oldDir || !newDir || sameDir(oldDir, newDir)) return result
+  const rels = new Set<string>()
+  view.state.doc.descendants((node) => {
+    if (node.type.name === 'image') {
+      const s = String(node.attrs.src ?? '').replace(/\\/g, '/')
+      if (isLocalRelativeSrc(s)) rels.add(s)
+    }
+    return true
+  })
+  for (const rel of rels) {
+    try {
+      const r = await api.copyFile(oldDir + '/' + rel, newDir + '/' + rel)
+      if (r === 'ok') result.copied++
+      else if (r === 'missing') result.missing++
+      else result.failed++
+    } catch {
+      result.failed++
+    }
+  }
+  return result
+}
+
 export interface Tab {
   id: string
   path: string | null
@@ -248,9 +295,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (tab.dirty && tab.path) void get().saveTab(id, false)
     let next = tabs.filter((t) => t.id !== id)
     if (next.length === 0) {
-      // 全部关闭时自动新建一个空白标签
+      // 全部关闭时回到软件主页（欢迎文档），与首次启动一致
       const nid = genTabId()
-      next = [{ id: nid, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial: '' }]
+      next = [{ id: nid, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial: WELCOME }]
       set({ tabs: next, activeTabId: nid })
       document.title = '未命名.md - SuperMarkdown'
       return
@@ -305,6 +352,7 @@ export const useStore = create<AppState>((set, get) => ({
     const view = get().activeView()
     if (!tab || !view) return
     const md = mdSerializer.serialize(view.state.doc)
+    const oldPath = tab.path
     const res = await api.saveFileDialog(md, tab.name)
     if (res?.path) {
       const name = baseName(res.path)
@@ -315,6 +363,12 @@ export const useStore = create<AppState>((set, get) => ({
       }))
       document.title = name + ' - SuperMarkdown'
       void api.addRecent(res.path).then(() => get().loadRecents())
+      if (oldPath) {
+        const m = await migrateAssetsOnSaveAs(oldPath, res.path, view)
+        if (m.failed > 0) {
+          get().notify(`另存为完成，但 ${m.failed} 个图片文件迁移失败`)
+        }
+      }
     }
   },
 

@@ -9,6 +9,29 @@ mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'stric
 
 let mermaidSeq = 0
 
+const EXTERNAL_SRC_RE = /^(data|https?|blob|file|smimg):/i
+
+function toSmimgUrl(absPath: string): string {
+  const norm = absPath.replace(/[\\/]+/g, '/').replace(/^\//, '')
+  return 'smimg:///' + norm.split('/').map(encodeURIComponent).join('/')
+}
+
+// 把 markdown 中的图片 src 解析为可加载的地址：
+// data:/http(s):/blob: 等原样保留；相对路径基于当前文档所在目录换算为 smimg:// 本地协议地址
+export function resolveImgSrc(src: unknown): string {
+  const s = String(src ?? '')
+  if (!s || EXTERNAL_SRC_RE.test(s)) return s
+  const isAbs = /^[A-Za-z]:[\\/]/.test(s) || s.startsWith('/') || s.startsWith('\\\\')
+  let p = s
+  if (!isAbs) {
+    const tabPath = useStore.getState().activeTab()?.path
+    if (!tabPath) return s
+    const dir = tabPath.split(/[\\/]/).slice(0, -1).join('/')
+    p = (dir ? dir + '/' : '') + s.replace(/\\/g, '/')
+  }
+  return toSmimgUrl(p)
+}
+
 class CodeBlockView implements NodeView {
   dom: HTMLDivElement
   node: Node
@@ -318,7 +341,7 @@ class ImageView implements NodeView {
   }
 
   private setImg() {
-    this.img.src = this.node.attrs.src || ''
+    this.img.src = resolveImgSrc(this.node.attrs.src)
     this.img.alt = this.node.attrs.alt || ''
     this.img.title = this.node.attrs.title || ''
     this.img.loading = 'lazy'

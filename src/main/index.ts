@@ -1,7 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import { buildAppMenu, showContextMenu } from './menu'
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'smimg', privileges: { secure: true, supportFetchAPI: true, stream: true } },
+])
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL
 let mainWindow: BrowserWindow | null = null
@@ -95,6 +100,16 @@ function createWindow() {
 }
 
 function registerIpc() {
+  protocol.handle('smimg', async (request) => {
+    try {
+      const raw = decodeURIComponent(request.url.slice('smimg:///'.length))
+      const filePath = path.normalize(raw)
+      return await net.fetch(pathToFileURL(filePath).toString())
+    } catch {
+      return new Response('Not Found', { status: 404 })
+    }
+  })
+
   ipcMain.on('window:min', () => mainWindow?.minimize())
   ipcMain.on('window:max', () => {
     if (!mainWindow) return
@@ -109,6 +124,22 @@ function registerIpc() {
   ipcMain.handle('file:write', async (_e, p: string, content: string) => {
     await fs.promises.writeFile(p, content, 'utf-8')
     return true
+  })
+
+  // 复制本地文件（用于另存为时迁移 assets 图片）；返回 'ok' | 'missing' | 'error'
+  ipcMain.handle('file:copy', async (_e, src: string, dest: string) => {
+    try {
+      await fs.promises.access(src)
+    } catch {
+      return 'missing'
+    }
+    try {
+      await fs.promises.mkdir(path.dirname(dest), { recursive: true })
+      await fs.promises.copyFile(src, dest)
+      return 'ok'
+    } catch {
+      return 'error'
+    }
   })
 
   ipcMain.handle('file:readDir', async (_e, p: string) => {
@@ -140,7 +171,7 @@ function registerIpc() {
     const name = `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`
     const full = path.join(assetsDir, name)
     await fs.promises.writeFile(full, Buffer.from(m[2], 'base64'))
-    return { path: full, rel: path.join('assets', name) }
+    return { path: full, rel: 'assets/' + name }
   })
 
   ipcMain.handle('dialog:openFile', async () => {
