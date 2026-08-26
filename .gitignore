@@ -1,9 +1,8 @@
 node_modules/
 dist/
 out/
-# 安装包随仓库分发（仅追踪 setup.exe，忽略解包目录等）
+# 安装包通过 GitCode 发行版（Release）分发，仓库不追踪 release 产物
 release/*
-!release/*.exe
 *.log
 .DS_Store
 Thumbs.db
