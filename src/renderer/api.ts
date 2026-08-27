@@ -32,6 +32,7 @@ export interface AppApi {
   writeFile(p: string, content: string): Promise<boolean>
   copyFile(src: string, dest: string): Promise<'ok' | 'missing' | 'error'>
   imageSave(dataUrl: string, dir: string): Promise<{ path: string; rel: string } | null>
+  readImageAsDataUrl(filePath: string): Promise<string | null>
   openFileDialog(): Promise<OpenResult | null>
   saveFileDialog(content: string, defaultName: string): Promise<SaveResult | null>
   openFolderDialog(): Promise<string | null>
@@ -83,6 +84,21 @@ function browserFallback(): AppApi {
     writeFile: async () => true,
     copyFile: async () => 'error',
     imageSave: async (dataUrl) => ({ path: dataUrl, rel: dataUrl }),
+    readImageAsDataUrl: async (filePath: string) => {
+      try {
+        const res = await fetch(filePath)
+        if (!res.ok) return null
+        const blob = await res.blob()
+        return await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(String(r.result))
+          r.onerror = () => reject(new Error('read failed'))
+          r.readAsDataURL(blob)
+        })
+      } catch {
+        return null
+      }
+    },
     openFileDialog: async () => {
       return new Promise((resolve) => {
         const input = document.createElement('input')

@@ -57,8 +57,9 @@ export const schema = new Schema({
       inline: true,
       group: 'inline',
       draggable: true,
+      selectable: true,
       // 去掉 atom：让 link 等 mark 能正常包裹图片（解决 <a><img></a> 无法渲染的问题）
-      // NodeView 仍把整张图视作一个整体，保证编辑体验一致
+      // NodeView 仍把整张图视作一个整体，保证编辑体验一致；selectable 让图片可被选中并支持复制
       attrs: {
         src: {},
         alt: { default: null },

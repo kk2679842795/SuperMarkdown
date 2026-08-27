@@ -174,6 +174,29 @@ function registerIpc() {
     return { path: full, rel: 'assets/' + name }
   })
 
+  // 将本地图片读为 dataURL（用于导出 HTML/PDF 内联，避免相对路径丢失）
+  ipcMain.handle('image:readAsDataUrl', async (_e, filePath: string) => {
+    try {
+      const buf = await fs.promises.readFile(filePath)
+      const ext = path.extname(filePath).toLowerCase()
+      const mimeMap: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.bmp': 'image/bmp',
+        '.avif': 'image/avif',
+        '.ico': 'image/x-icon',
+      }
+      const mime = mimeMap[ext] || 'image/png'
+      return `data:${mime};base64,${buf.toString('base64')}`
+    } catch {
+      return null
+    }
+  })
+
   ipcMain.handle('dialog:openFile', async () => {
     const r = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openFile'],

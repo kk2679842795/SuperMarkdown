@@ -253,3 +253,82 @@ export function handleEditorDrop(view: EditorView, event: DragEvent): boolean {
   void insertImageAt(view, file, pos)
   return true
 }
+
+// ---------- 图片复制 ----------
+
+function absoluteImagePath(src: string): string | null {
+  const s = String(src ?? '').trim()
+  if (!s) return null
+  if (/^(data|blob):/i.test(s)) return null
+  if (/^https?:\/\//i.test(s)) return null
+  if (s.startsWith('smimg:///')) {
+    try {
+      const raw = decodeURIComponent(s.slice('smimg:///'.length))
+      return raw.replace(/\\/g, '/')
+    } catch {
+      return s.slice('smimg:///'.length)
+    }
+  }
+  if (/^file:/i.test(s)) return null
+  const isAbs = /^[A-Za-z]:[\\/]/.test(s) || s.startsWith('/') || s.startsWith('\\\\')
+  if (isAbs) return s.replace(/\\/g, '/')
+  const tabPath = useStore.getState().activeTab()?.path
+  if (!tabPath) return null
+  const dir = tabPath.split(/[\\/]/).slice(0, -1).join('/')
+  return (dir ? dir + '/' : '') + s.replace(/\\/g, '/')
+}
+
+export function handleEditorCopy(view: EditorView, event: ClipboardEvent): boolean {
+  const sel = view.state.selection
+  // 仅处理单张图片的 NodeSelection
+  if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'image') return false
+  const node = sel.node
+  const src: string = node.attrs.src || ''
+  const alt: string = node.attrs.alt || ''
+  const title: string = node.attrs.title || ''
+  // 剪贴板纯文本：Markdown 语法，便于粘贴到其他 Markdown 编辑器
+  const md = title ? `![${alt}](${src} "${title.replace(/"/g, '\\"')}")` : `![${alt}](${src})`
+  // 剪贴板 HTML：带 img 标签
+  const html = `<img src="${src.replace(/"/g, '&quot;')}" alt="${alt.replace(/"/g, '&quot;')}"${title ? ` title="${title.replace(/"/g, '&quot;')}"` : ''}>`
+  try {
+    event.clipboardData?.setData('text/plain', md)
+    event.clipboardData?.setData('text/html', html)
+  } catch {
+    /* ignore */
+  }
+  // 尝试异步把图片文件本身写入剪贴板（支持粘贴为图片到聊天/文档）
+  const abs = absoluteImagePath(src)
+  if (abs && event.clipboardData) {
+    // 同步已写入文本/HTML，这里异步增强为二进制图片
+    void (async () => {
+      try {
+        const dataUrl = await api.readImageAsDataUrl(abs)
+        if (!dataUrl) return
+        const m = /^data:(image\/[a-zA-Z+.-]+);base64,(.*)$/s.exec(dataUrl)
+        if (!m) return
+        const mime = m[1]
+        const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0))
+        const blob = new Blob([bin], { type: mime })
+        // 现代 Clipboard API：写入图片
+        const nav = navigator as unknown as { clipboard?: { write?: (items: unknown[]) => Promise<void> } }
+        const ClipboardItemCtor = (globalThis as unknown as { ClipboardItem?: new (d: Record<string, Blob>) => unknown }).ClipboardItem
+        if (nav.clipboard?.write && ClipboardItemCtor) {
+          try {
+            await nav.clipboard.write([new ClipboardItemCtor({ [mime]: blob })])
+          } catch {
+            /* 忽略，用户已通过文本/HTML 获得复制内容 */
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    })()
+  }
+  event.preventDefault()
+  // 剪切时删除选中节点
+  if (event.type === 'cut') {
+    view.dispatch(view.state.tr.deleteSelection())
+    view.focus()
+  }
+  return true
+}

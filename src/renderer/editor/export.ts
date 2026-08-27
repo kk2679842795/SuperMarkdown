@@ -13,12 +13,49 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// 把图片 src 解析为本地绝对路径；外部 http/data/blob 等返回 null（无需内联）
+function resolveAbsoluteImagePath(src: string): string | null {
+  const s = String(src ?? '').trim()
+  if (!s) return null
+  if (/^(data|blob):/i.test(s)) return null
+  if (/^https?:\/\//i.test(s)) return null
+  if (s.startsWith('smimg:///')) {
+    try {
+      const raw = decodeURIComponent(s.slice('smimg:///'.length))
+      return raw.replace(/\\/g, '/')
+    } catch {
+      return s.slice('smimg:///'.length)
+    }
+  }
+  if (/^file:/i.test(s)) return null
+  const isAbs = /^[A-Za-z]:[\\/]/.test(s) || s.startsWith('/') || s.startsWith('\\\\')
+  if (isAbs) return s.replace(/\\/g, '/')
+  const tabPath = useStore.getState().activeTab()?.path
+  if (!tabPath) return null
+  const dir = tabPath.split(/[\\/]/).slice(0, -1).join('/')
+  return (dir ? dir + '/' : '') + s.replace(/\\/g, '/')
+}
+
 export async function buildExportHtml(): Promise<string> {
   const view = useStore.getState().activeView()
   if (!view) throw new Error('编辑器未就绪')
   const doc = view.state.doc
   const host = document.createElement('div')
   host.appendChild(DOMSerializer.fromSchema(schema).serializeFragment(doc.content))
+
+  // 图片：把本地相对/绝对路径的图片内联为 dataURL，避免导出后因路径失效而丢失
+  const imgs = Array.from(host.querySelectorAll<HTMLImageElement>('img'))
+  for (const img of imgs) {
+    const rawSrc = img.getAttribute('src') || ''
+    const abs = resolveAbsoluteImagePath(rawSrc)
+    if (!abs) continue
+    try {
+      const dataUrl = await api.readImageAsDataUrl(abs)
+      if (dataUrl) img.setAttribute('src', dataUrl)
+    } catch {
+      /* 保持原 src，若文件不存在则导出后仍显示破图占位 */
+    }
+  }
 
   // 数学公式（行内 + 块级）
   host.querySelectorAll<HTMLElement>('.math-inline').forEach((el) => {

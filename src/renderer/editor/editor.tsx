@@ -5,7 +5,7 @@ import { parseMarkdown } from './parser'
 import { createPlugins } from './plugins'
 import { buildNodeViews } from './nodeviews'
 import { useStore } from '../store'
-import { handleEditorClick, handleEditorPaste, handleEditorDrop } from './commands'
+import { handleEditorClick, handleEditorPaste, handleEditorDrop, handleEditorCopy } from './commands'
 
 function EditorPane({ tabId }: { tabId: string }) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -42,6 +42,12 @@ function EditorPane({ tabId }: { tabId: string }) {
         },
         drop(v, event) {
           return handleEditorDrop(v, event as DragEvent)
+        },
+        copy(v, event) {
+          return handleEditorCopy(v, event as ClipboardEvent)
+        },
+        cut(v, event) {
+          return handleEditorCopy(v, event as ClipboardEvent)
         },
       },
     })

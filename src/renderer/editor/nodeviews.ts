@@ -1,5 +1,6 @@
 import type { Node } from 'prosemirror-model'
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view'
+import { NodeSelection } from 'prosemirror-state'
 import katex from 'katex'
 import hljs from 'highlight.js/lib/common'
 import mermaid from 'mermaid'
@@ -326,16 +327,33 @@ class ImageView implements NodeView {
     this.getPos = getPos
     this.dom = document.createElement('span')
     this.dom.className = 'image-view'
+    this.dom.draggable = true
     this.img = document.createElement('img')
+    this.img.draggable = false
     this.dom.appendChild(this.img)
     this.dom.addEventListener('dblclick', (e) => {
       e.preventDefault()
       e.stopPropagation()
       this.openEditor()
     })
-    // 防止双击时选区进入图片内部
-    this.dom.addEventListener('mousedown', (e) => {
-      e.preventDefault()
+    // 单击选中节点（使 Ctrl+C 有明确的 NodeSelection 目标）
+    this.dom.addEventListener('click', (e) => {
+      const pos = this.getPos()
+      if (pos == null) return
+      const sel = this.view.state.selection
+      const already = sel instanceof NodeSelection && sel.from === pos
+      if (!already) {
+        try {
+          this.view.dispatch(this.view.state.tr.setSelection(NodeSelection.create(this.view.state.doc, pos)))
+          this.view.focus()
+        } catch {}
+      }
+      e.stopPropagation()
+    })
+    // 阻止图片内部拖拽默认行为，由 ProseMirror 接管
+    this.img.addEventListener('dragstart', (e) => {
+      // 让 ProseMirror 的拖拽处理能获取 node 信息
+      e.stopPropagation()
     })
     this.setImg()
   }
@@ -393,6 +411,25 @@ class ImageView implements NodeView {
 
   deselectNode() {
     this.dom.classList.remove('ProseMirror-selectednode')
+  }
+
+  stopEvent(event: Event) {
+    const t = event.type
+    // 让 ProseMirror 接管选中与剪贴板相关事件，确保图片可被选中/复制/拖拽
+    if (
+      t === 'mousedown' ||
+      t === 'mouseup' ||
+      t === 'click' ||
+      t === 'dblclick' ||
+      t === 'copy' ||
+      t === 'cut' ||
+      t === 'paste' ||
+      t === 'dragstart' ||
+      t === 'dragend' ||
+      t === 'drop'
+    )
+      return false
+    return true
   }
 
   ignoreMutation() {

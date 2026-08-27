@@ -38,6 +38,7 @@ const api = {
   writeFile: (p: string, content: string) => ipcRenderer.invoke('file:write', p, content),
   copyFile: (src: string, dest: string) => ipcRenderer.invoke('file:copy', src, dest),
   imageSave: (dataUrl: string, dir: string) => ipcRenderer.invoke('image:save', dataUrl, dir),
+  readImageAsDataUrl: (filePath: string) => ipcRenderer.invoke('image:readAsDataUrl', filePath),
   openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
   saveFileDialog: (content: string, defaultName: string) =>
     ipcRenderer.invoke('dialog:saveFile', content, defaultName),
