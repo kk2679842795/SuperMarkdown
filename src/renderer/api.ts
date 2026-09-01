@@ -41,6 +41,10 @@ export interface AppApi {
   getRecent(): Promise<string[]>
   addRecent(p: string): Promise<string[]>
   clearRecent(): Promise<string[]>
+  removeRecent(p: string): Promise<string[]>
+
+  getWorkspaceFolder(): Promise<string | null>
+  setWorkspaceFolder(p: string | null): Promise<boolean>
 
   exportHtml(html: string, name: string): Promise<{ ok: boolean; path?: string; error?: string }>
   exportPdf(html: string, name: string): Promise<{ ok: boolean; path?: string; error?: string }>
@@ -58,6 +62,7 @@ declare global {
 // ---------- 浏览器回退实现（用于网页预览 / 调试，无 Electron 时） ----------
 function browserFallback(): AppApi {
   const recentsKey = 'sm-recents'
+  const workspaceKey = 'sm-workspace'
   const ls = (): string[] => {
     try {
       return JSON.parse(localStorage.getItem(recentsKey) || '[]')
@@ -134,6 +139,33 @@ function browserFallback(): AppApi {
     clearRecent: async () => {
       localStorage.removeItem(recentsKey)
       return []
+    },
+    removeRecent: async (p) => {
+      const current = ls()
+      const next = current.filter((x) => x !== p)
+      if (next.length === current.length) return current
+      try {
+        localStorage.setItem(recentsKey, JSON.stringify(next))
+      } catch (e) {
+        throw e instanceof Error ? e : new Error(String(e))
+      }
+      return next
+    },
+    getWorkspaceFolder: async () => {
+      try {
+        const data = JSON.parse(localStorage.getItem(workspaceKey) || '{}')
+        return typeof data?.lastFolder === 'string' ? data.lastFolder : null
+      } catch {
+        return null
+      }
+    },
+    setWorkspaceFolder: async (p) => {
+      try {
+        localStorage.setItem(workspaceKey, JSON.stringify({ lastFolder: p }))
+        return true
+      } catch {
+        return false
+      }
     },
     exportHtml: async (html, name) => {
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' })

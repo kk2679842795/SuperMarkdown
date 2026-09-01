@@ -6,6 +6,7 @@ import TabBar from './components/TabBar'
 import Toolbar from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import Outline from './components/Outline'
+import StartPage from './components/StartPage'
 import StatusBar from './components/StatusBar'
 import SourceModal from './components/SourceModal'
 import SearchBar from './components/SearchBar'
@@ -48,6 +49,8 @@ export default function App() {
   const modal = useStore((s) => s.modal)
   const toast = useStore((s) => s.toast)
   const searchOpen = useStore((s) => s.search.open)
+  const tabs = useStore((s) => s.tabs)
+  const noTabs = tabs.length === 0
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -91,9 +94,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    // 启动时若无标签则创建第一个
-    if (useStore.getState().tabs.length === 0) useStore.getState().newFile()
+    // 启动时不再强制创建欢迎文档：空标签态渲染开始页
     void useStore.getState().loadRecents()
+    void useStore.getState().restoreWorkspace()
     if (!api.isElectron) return
     const off = api.onMenuAction((action) => {      const get = useStore.getState
       const refreshViews = () => {
@@ -254,9 +257,9 @@ export default function App() {
       <div className="main">
         {!zenMode && sidebarOpen && <Sidebar />}
         <div className="content">
-          {searchOpen && <SearchBar />}
-          <Editor />
-          {!zenMode && outlineOpen && <Outline />}
+          {searchOpen && !noTabs && <SearchBar />}
+          {noTabs ? <StartPage /> : <Editor />}
+          {!zenMode && outlineOpen && !noTabs && <Outline />}
         </div>
       </div>
       {!zenMode && <StatusBar />}

@@ -5,7 +5,7 @@ import { api } from './api'
 import { mdSerializer } from './editor/serializer'
 import { parseMarkdown } from './editor/parser'
 import { createPlugins } from './editor/plugins'
-import { WELCOME } from './welcome'
+
 
 export interface ModalState {
   kind: 'code' | 'math' | 'image' | 'link' | 'table'
@@ -143,7 +143,9 @@ interface AppState {
   saveCurrentAs: () => Promise<void>
   saveTab: (tabId: string, silent?: boolean) => Promise<void>
   loadRecents: () => Promise<void>
+  removeRecent: (path: string) => Promise<void>
   openFolder: () => Promise<void>
+  restoreWorkspace: () => Promise<void>
   loadDir: (dir: string) => Promise<FileNode[]>
   setTree: (tree: FileNode[] | null) => void
   setTreeRoot: (root: string | null) => void
@@ -270,9 +272,7 @@ export const useStore = create<AppState>((set, get) => ({
   newFile: () => {
     const { tabs } = get()
     const id = genTabId()
-    // 首次启动（无任何标签）展示欢迎文档，之后新建空白文档
-    const initial = tabs.length === 0 ? WELCOME : ''
-    const tab: Tab = { id, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial }
+    const tab: Tab = { id, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial: '' }
     set({ tabs: [...tabs, tab], activeTabId: id })
     document.title = '未命名.md - SuperMarkdown'
   },
@@ -295,11 +295,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (tab.dirty && tab.path) void get().saveTab(id, false)
     let next = tabs.filter((t) => t.id !== id)
     if (next.length === 0) {
-      // 全部关闭时回到软件主页（欢迎文档），与首次启动一致
-      const nid = genTabId()
-      next = [{ id: nid, path: null, name: '未命名.md', dirty: false, saveState: 'saved', initial: WELCOME }]
-      set({ tabs: next, activeTabId: nid })
-      document.title = '未命名.md - SuperMarkdown'
+      // 全部关闭时回到开始页（空标签态），不再以欢迎文档顶替
+      set({ tabs: [], activeTabId: null })
+      document.title = 'SuperMarkdown'
       return
     }
     let newActive: string
@@ -376,11 +374,34 @@ export const useStore = create<AppState>((set, get) => ({
     set({ recents: await api.getRecent() })
   },
 
+  // 单条删除最近记录：非乐观更新，以 API 返回列表为唯一事实来源；仅更新 recents，不触碰 tabs/views（编辑会话隔离）
+  removeRecent: async (path) => {
+    try {
+      const next = await api.removeRecent(path)
+      set({ recents: next })
+    } catch {
+      get().notify('删除失败，请重试')
+    }
+  },
+
   openFolder: async () => {
     const dir = await api.openFolderDialog()
     if (!dir) return
     const tree = await get().loadDir(dir)
     set({ treeRoot: dir, tree })
+    void api.setWorkspaceFolder(dir)
+  },
+
+  // 启动时恢复上次打开的文件夹；主进程已校验存在性，此处加载失败再兜底清除记录，不弹错打扰
+  restoreWorkspace: async () => {
+    try {
+      const dir = await api.getWorkspaceFolder()
+      if (!dir || get().treeRoot) return
+      const tree = await get().loadDir(dir)
+      set({ treeRoot: dir, tree })
+    } catch {
+      void api.setWorkspaceFolder(null)
+    }
   },
 
   loadDir: async (dir) => {
@@ -487,6 +508,8 @@ export const useStore = create<AppState>((set, get) => ({
 }))
 
 document.documentElement.dataset.theme = useStore.getState().theme
+// 启动即开始页（空标签态）：窗口标题不带「未命名.md」
+if (useStore.getState().tabs.length === 0) document.title = 'SuperMarkdown'
 // 供 editor 插件读取（专注/打字机）
 ;(globalThis as unknown as { __smStore?: typeof useStore }).__smStore = useStore
 // 同步 zen/focus/typewriter 到 html dataset 便于 CSS（可选）

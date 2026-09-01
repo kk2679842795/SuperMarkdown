@@ -89,6 +89,16 @@ export default function Sidebar() {
           <div key={p} className="sb-item sb-recent" onClick={() => void openRecent(p)} title={p}>
             <span>🕘</span>
             <span className="sb-name">{p.split(/[\\/]/).pop()}</span>
+            <button
+              className="sb-recent-remove"
+              title="删除该记录"
+              onClick={(e) => {
+                e.stopPropagation()
+                void get().removeRecent(p)
+              }}
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>

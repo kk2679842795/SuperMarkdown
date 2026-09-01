@@ -901,6 +901,36 @@ body {
   text-overflow: ellipsis;
 }
 
+.sb-recent .sb-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.sb-recent-remove {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--fg3);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+}
+
+.sb-recent-remove:hover {
+  color: var(--danger, #d94848);
+  background: var(--bg3);
+}
+
+.sb-recent:hover .sb-recent-remove {
+  opacity: 1;
+  visibility: visible;
+}
+
 .sb-caret {
   font-size: 9px;
   color: var(--fg3);
@@ -1275,4 +1305,131 @@ body {
   /* 上下留白让光标有居中空间 */
   padding-top: 40vh;
   padding-bottom: 50vh;
+}
+
+/* ============ 开始页（空标签态主页） ============ */
+.start-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.sp-card {
+  width: min(560px, 88%);
+  padding: 40px 44px 28px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  box-shadow: var(--shadow);
+}
+
+.sp-title {
+  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--fg);
+  letter-spacing: 0.5px;
+}
+
+.sp-desc {
+  margin: 0 0 24px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--fg2);
+}
+
+.sp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.sp-btn {
+  padding: 8px 18px;
+  font-size: 13.5px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-btn kbd {
+  font-size: 11px;
+  opacity: 0.75;
+  font-family: inherit;
+}
+
+.sp-recents {
+  margin-bottom: 22px;
+}
+
+.sp-recents-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg3);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.sp-item:hover {
+  background: var(--bg3);
+}
+
+.sp-item-icon {
+  font-size: 12px;
+}
+
+.sp-item-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sp-item-path {
+  color: var(--fg3);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.sp-empty {
+  font-size: 12.5px;
+  color: var(--fg3);
+  padding: 6px 10px;
+}
+
+.sp-tips {
+  font-size: 12px;
+  color: var(--fg3);
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.sp-tips kbd,
+.sp-btn kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--fg2);
+  font-size: 11px;
+  line-height: 1.4;
 }

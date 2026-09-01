@@ -40,6 +40,10 @@ function recentFilePath() {
   return path.join(app.getPath('userData'), 'recent.json')
 }
 
+function workspaceFilePath() {
+  return path.join(app.getPath('userData'), 'workspace.json')
+}
+
 function readRecent(): string[] {
   try {
     return JSON.parse(fs.readFileSync(recentFilePath(), 'utf-8'))
@@ -48,11 +52,41 @@ function readRecent(): string[] {
   }
 }
 
-function writeRecent(list: string[]) {
+function writeRecent(list: string[]): boolean {
   try {
     fs.writeFileSync(recentFilePath(), JSON.stringify(list, null, 2), 'utf-8')
+    return true
   } catch {
     /* 忽略 */
+    return false
+  }
+}
+
+// 移除单条最近记录：字符串精确相等过滤（与 recent:add 去重语义一致），幂等（无变化时跳过写盘），不触碰文件本体
+// 写盘失败时返回原列表（磁盘真实状态），由 recent:remove 通道据此抛错
+function removeRecent(filePath: string): string[] {
+  const current = readRecent()
+  const next = current.filter((x) => x !== filePath)
+  if (next.length === current.length) return current
+  return writeRecent(next) ? next : current
+}
+
+// 侧边栏「文件管理」上次打开的文件夹：损坏/缺失视为无记录，字段类型不符回退 null
+function readWorkspace(): { lastFolder: string | null } {
+  try {
+    const data = JSON.parse(fs.readFileSync(workspaceFilePath(), 'utf-8'))
+    return { lastFolder: typeof data?.lastFolder === 'string' ? data.lastFolder : null }
+  } catch {
+    return { lastFolder: null }
+  }
+}
+
+function writeWorkspace(data: { lastFolder: string | null }): boolean {
+  try {
+    fs.writeFileSync(workspaceFilePath(), JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -229,9 +263,31 @@ function registerIpc() {
     return list
   })
   ipcMain.handle('recent:clear', () => {
-    writeRecent([])
+    if (!writeRecent([])) throw new Error('清空最近记录失败：持久化写入失败')
     return []
   })
+  ipcMain.handle('recent:remove', (_e, filePath: string): string[] => {
+    const result = removeRecent(filePath)
+    if (result.includes(filePath)) {
+      throw new Error('删除最近记录失败：持久化写入失败')
+    }
+    return result
+  })
+
+  // 文件管理目录持久化：读取时校验文件夹仍存在，已失效则清除记录（自我修复）并返回 null
+  ipcMain.handle('workspace:get', async (): Promise<string | null> => {
+    const { lastFolder } = readWorkspace()
+    if (!lastFolder) return null
+    try {
+      const st = await fs.promises.stat(lastFolder)
+      if (st.isDirectory()) return lastFolder
+    } catch {
+      /* fallthrough */
+    }
+    writeWorkspace({ lastFolder: null })
+    return null
+  })
+  ipcMain.handle('workspace:set', (_e, p: string | null) => writeWorkspace({ lastFolder: p }))
 
   ipcMain.handle('export:html', async (_e, html: string, defaultName: string) => {
     const r = await dialog.showSaveDialog(mainWindow!, {

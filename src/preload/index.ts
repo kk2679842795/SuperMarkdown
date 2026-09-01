@@ -48,6 +48,10 @@ const api = {
   getRecent: () => ipcRenderer.invoke('recent:get'),
   addRecent: (p: string) => ipcRenderer.invoke('recent:add', p),
   clearRecent: () => ipcRenderer.invoke('recent:clear'),
+  removeRecent: (p: string): Promise<string[]> => ipcRenderer.invoke('recent:remove', p),
+
+  getWorkspaceFolder: (): Promise<string | null> => ipcRenderer.invoke('workspace:get'),
+  setWorkspaceFolder: (p: string | null): Promise<boolean> => ipcRenderer.invoke('workspace:set', p),
 
   exportHtml: (html: string, name: string) => ipcRenderer.invoke('export:html', html, name),
   exportPdf: (html: string, name: string) => ipcRenderer.invoke('export:pdf', html, name),

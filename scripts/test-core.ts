@@ -1,15 +1,54 @@
-// 核心逻辑回归测试：解析 -> 序列化 -> 再解析 的往返一致性
+// 核心逻辑回归测试：解析 -> 序列化 -> 再解析 的往返一致性 + 链接地址归一化
 import { parseMarkdown } from '../src/renderer/editor/parser'
 import { mdSerializer } from '../src/renderer/editor/serializer'
-import { WELCOME } from '../src/renderer/welcome'
+import { normalizeHref } from '../src/renderer/editor/linkUrl'
 
-const doc = parseMarkdown(WELCOME)
+const SAMPLE = `# 欢迎使用 SuperMarkdown
+
+**SuperMarkdown** 是一款**免费、开源**的编辑器。
+
+> 本文档用于核心逻辑回归测试。
+
+## 功能
+
+- **所见即所得**：[超链接](https://github.com)
+- ~~删除线~~ 与 \`行内代码\`
+- $e^{i\\pi} + 1 = 0$
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+$$
+
+\`\`\`mermaid
+flowchart TD
+    A[开始] --> B[结束]
+\`\`\`
+
+\`\`\`typescript
+function greet(name: string): string {
+  return 'Hello, ' + name
+}
+\`\`\`
+
+- [x] 已完成项
+- [ ] 待办项
+
+| 功能 | 状态 | 备注 |
+| :--- | :---: | ---: |
+| 所见即所得 | ✅ | 核心能力 |
+
+---
+
+结尾。
+`
+
+const doc = parseMarkdown(SAMPLE)
 const out = mdSerializer.serialize(doc)
 
 const asserts: [string, boolean][] = [
   ['标题保留', out.includes('# 欢迎使用 SuperMarkdown')],
-  ['任务列表已完成项', /\[x\] 支持任务列表语法/.test(out)],
-  ['任务列表未完成项', /\[ \] 研究更多高级功能/.test(out)],
+  ['任务列表已完成项', /\[x\] 已完成项/.test(out)],
+  ['任务列表未完成项', /\[ \] 待办项/.test(out)],
   ['行内公式', out.includes('$e^{i\\pi} + 1 = 0$')],
   ['块级公式', out.includes('$$') && out.includes('e^{-x^2}')],
   ['Mermaid 围栏', out.includes('```mermaid')],
@@ -18,7 +57,7 @@ const asserts: [string, boolean][] = [
   ['表格分隔行', out.includes(':---')],
   ['删除线', out.includes('~~')],
   ['链接', /\[[^\]]+\]\([^)]+\)/.test(out)],
-  ['引用', out.includes('> 本文档演示了核心能力')],
+  ['引用', out.includes('> 本文档用于核心逻辑回归测试')],
   ['分隔线', out.includes('---')],
 ]
 
@@ -61,6 +100,32 @@ for (const src of frags) {
   if (!ok) {
     console.log('   src:', JSON.stringify(src))
     console.log('   out:', JSON.stringify(s))
+    fail++
+  }
+}
+
+// normalizeHref：域名补全 https://，协议/锚点/相对路径原样保留
+const hrefCases: [string, string][] = [
+  ['https://example.com', 'https://example.com'],
+  ['http://example.com/a?b=1', 'http://example.com/a?b=1'],
+  ['www.baidu.com', 'https://www.baidu.com'],
+  ['github.com/x/y', 'https://github.com/x/y'],
+  ['example.com/', 'https://example.com/'],
+  ['#section', '#section'],
+  ['/abs/path.md', '/abs/path.md'],
+  ['./doc.md', './doc.md'],
+  ['../img/a.png', '../img/a.png'],
+  ['mailto:a@b.com', 'mailto:a@b.com'],
+  ['我的文档.md', '我的文档.md'],
+  ['assets/img-1.png', 'assets/img-1.png'],
+  ['  spaced.com  ', 'https://spaced.com'],
+]
+for (const [input, expected] of hrefCases) {
+  const got = normalizeHref(input)
+  const ok = got === expected
+  console.log((ok ? 'PASS' : 'FAIL') + '  normalizeHref: ' + JSON.stringify(input) + ' -> ' + JSON.stringify(got))
+  if (!ok) {
+    console.log('   expected:', JSON.stringify(expected))
     fail++
   }
 }
